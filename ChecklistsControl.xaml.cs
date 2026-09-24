@@ -71,19 +71,41 @@ namespace TNovDesktop
         }
 
         /// <summary>
-        /// Источник JSON Чек-листа — как в плагине (DocumentStores.ForChecklist):
+        /// Источник JSON Чек-листа — как в плагине (DocumentStores.ForChecklist + ServerSettings):
         /// "ChecklistStorage": "api" + "ApiUrl" (+ "ApiKey") — TNovApi, иначе файлы шары.
+        /// Значения берутся из локального TNovConfig.json, а пустые — из общего {ServerPath}tnovapi.json.
+        /// Вызывается при обновлении отчёта, который и так читает шару, поэтому файл читаем без кэша.
         /// </summary>
         private static IChecklistDataSource CreateSource()
         {
             JObject? config = ReadConfig();
-            string? storage = config?["ChecklistStorage"]?.ToString();
-            string? apiUrl = config?["ApiUrl"]?.ToString();
+            JObject? shared = ReadSharedSettings(ResolveServerPath());
+            string? storage = Setting(config, shared, "ChecklistStorage");
+            string? apiUrl = Setting(config, shared, "ApiUrl");
             if (!ChecklistDataSources.UsesApi(storage, apiUrl))
                 return new FileChecklistSource(ResolveServerPath());
 
-            string? apiKey = config?["ApiKey"]?.ToString();
+            string? apiKey = Setting(config, shared, "ApiKey");
             return new ApiChecklistSource(() => GetClient(apiUrl!, apiKey));
+        }
+
+        /// <summary>Непустое локальное значение важнее общего — как в плагине.</summary>
+        private static string? Setting(JObject? local, JObject? shared, string name)
+        {
+            string? value = local?[name]?.ToString();
+            return string.IsNullOrWhiteSpace(value) ? shared?[name]?.ToString() : value;
+        }
+
+        private static JObject? ReadSharedSettings(string serverPath)
+        {
+            try
+            {
+                string path = Path.Combine(serverPath, "tnovapi.json");
+                if (File.Exists(path))
+                    return JObject.Parse(File.ReadAllText(path));
+            }
+            catch { }
+            return null;
         }
 
         /// <summary>Один HttpClient на процесс: keep-alive экономит рукопожатия при каждом обновлении.</summary>
@@ -94,7 +116,7 @@ namespace TNovDesktop
             {
                 if (_client == null || _clientSignature != signature)
                 {
-                    _client?.Dispose();
+                    // Прежний клиент не закрываем: им может ещё пользоваться идущий сбор отчёта.
                     _client = new TNovApiClient(new TNovApiClientOptions
                     {
                         BaseAddress = new Uri(apiUrl),
