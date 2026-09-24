@@ -122,6 +122,8 @@ namespace TNovDesktop
                         BaseAddress = new Uri(apiUrl),
                         ApiKey = apiKey,
                         UserName = Environment.UserName,
+                        // Ключа нет — вход по учётке Windows (Kerberos → токен API), как в плагине.
+                        UseDefaultCredentials = string.IsNullOrWhiteSpace(apiKey),
                         Timeout = TimeSpan.FromSeconds(10)
                     });
                     _clientSignature = signature;
