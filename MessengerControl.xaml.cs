@@ -10,13 +10,15 @@ namespace TNovDesktop
         private readonly WebViewTabController _tab;
 
         public event Action<string, string, string> ShowToastRequested;
+        public event Action<IReadOnlyDictionary<string, int>, int> SidebarBadgesChanged;
 
         public MessengerControl()
         {
             InitializeComponent();
 
-            _tab = new WebViewTabController(WebView, LoadingProgress, ErrorPanel, ErrorDetails, Url, allowMedia: true);
+            _tab = new WebViewTabController(WebView, LoadingProgress, ErrorPanel, ErrorDetails, Url, allowMedia: true, watchSidebarBadges: true);
             _tab.ShowToastRequested += (title, body, convId) => ShowToastRequested?.Invoke(title, body, convId);
+            _tab.SidebarBadgesChanged += (items, total) => SidebarBadgesChanged?.Invoke(items, total);
 
             Loaded += (s, e) => _tab.OnLoaded();
             Unloaded += (s, e) => _tab.OnUnloaded();

@@ -41,7 +41,7 @@ namespace TNovDesktop
                 if (Directory.Exists(_networkPath))
                 {
                     StatusText.Text = "✅ Доступ есть";
-                    StatusText.Foreground = new SolidColorBrush(Color.FromRgb(0, 150, 0));
+                    StatusText.Foreground = (System.Windows.Media.Brush)FindResource("AccentBrush");
                     //HintText.Text = "Вы подключены к корпоративной сети.\nСо временем здесь появятся новые инструменты!";
                     StatusPanel.Visibility = Visibility.Collapsed;
                     HeadPanel.Visibility = Visibility.Visible;
@@ -57,7 +57,7 @@ namespace TNovDesktop
                 else
                 {
                     StatusText.Text = "❌ Проверьте подключение к корпоративной сети";
-                    StatusText.Foreground = new SolidColorBrush(Colors.Red);
+                    StatusText.Foreground = (System.Windows.Media.Brush)FindResource("ErrorBrush");
                     HintText.Text = "Убедитесь, что вы подключены к сети предприятия.";
                     StatusPanel.Visibility = Visibility.Visible;
                     HeadPanel.Visibility = Visibility.Collapsed;
@@ -68,7 +68,7 @@ namespace TNovDesktop
             catch
             {
                 StatusText.Text = "❌ Ошибка доступа";
-                StatusText.Foreground = new SolidColorBrush(Colors.Red);
+                StatusText.Foreground = (System.Windows.Media.Brush)FindResource("ErrorBrush");
                 HintText.Text = "Возникла непредвиденная ошибка\nпри проверке подключения к корпоративной сети.";
                 //OpenProjectFolderButton.Visibility = Visibility.Collapsed;
                 TableContainer.Visibility = Visibility.Collapsed;
@@ -148,6 +148,7 @@ namespace TNovDesktop
             ModelComboBox.Text = string.Empty;
 
             // Очищаем поля фильтров в заголовках столбцов
+            ClearHeaderTextBox("FilterFileName");
             ClearHeaderTextBox("FilterHoleGroup");
             ClearHeaderTextBox("FilterInitiator");
             ClearHeaderTextBox("FilterSTStatus");
@@ -183,6 +184,7 @@ namespace TNovDesktop
             }
 
             // Текстовые фильтры в заголовках
+            if (!PassTextFilter(GetFilterText("FilterFileName"), hole.ModelName)) return false;
             if (!PassTextFilter(GetFilterText("FilterHoleGroup"), hole.HoleGroupName)) return false;
             if (!PassTextFilter(GetFilterText("FilterInitiator"), hole.Initiator)) return false;
             if (!PassTextFilter(GetFilterText("FilterSTStatus"), hole.STStatus)) return false;

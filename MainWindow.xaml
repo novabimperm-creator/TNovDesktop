@@ -11,300 +11,128 @@
         Background="Transparent"
         WindowStyle="None">
 
+    <Window.TaskbarItemInfo>
+        <TaskbarItemInfo x:Name="AppTaskbarInfo"/>
+    </Window.TaskbarItemInfo>
+
     <WindowChrome.WindowChrome>
-        <WindowChrome CaptionHeight="30"
+        <WindowChrome CaptionHeight="48"
                       ResizeBorderThickness="5"
                       GlassFrameThickness="0"
                       CornerRadius="12"/>
     </WindowChrome.WindowChrome>
 
-    <Window.Resources>
-        <!-- Стиль кнопки "Обновить" (синяя круглая) -->
-        <Style x:Key="RefreshButtonStyle" TargetType="Button">
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="Button">
-                        <Grid>
-                            <Ellipse Fill="{TemplateBinding Background}" 
-                             Stroke="{TemplateBinding BorderBrush}" 
-                             StrokeThickness="{TemplateBinding BorderThickness}"/>
-                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Top"/>
-                        </Grid>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter Property="Foreground" Value="Black"/>
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-            <Setter Property="Background" Value="#FF008E43"/>
-            <Setter Property="Foreground" Value="White"/>
-            <Setter Property="BorderBrush" Value="#FF008E43"/>
-            <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="FontWeight" Value="Bold"/>
-            <Setter Property="FontSize" Value="14"/>
-        </Style>
-        <!-- Стиль вкладок -->
-        <Style x:Key="RoundedTabItemStyle" TargetType="TabItem">
-            <Setter Property="FontSize" Value="15"/>
-            <Setter Property="FontWeight" Value="SemiBold"/>
-            <Setter Property="Foreground" Value="#333"/>
-            <Setter Property="Padding" Value="16,8"/>
-            <Setter Property="Margin" Value="0,2,0,0"/>
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="TabItem">
-                        <Border x:Name="TabBorder"
-                        CornerRadius="12,12,0,0"
-                        Background="Transparent"
-                        BorderBrush="Transparent"
-                        BorderThickness="0"
-                        Padding="{TemplateBinding Padding}">
-                            <ContentPresenter ContentSource="Header"
-                                      HorizontalAlignment="Center"
-                                      VerticalAlignment="Center"/>
-                        </Border>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsSelected" Value="True">
-                                <Setter TargetName="TabBorder" Property="Background" Value="White"/>
-                                <Setter TargetName="TabBorder" Property="BorderBrush" Value="#FF008E43"/>
-                                <Setter TargetName="TabBorder" Property="BorderThickness" Value="1,1,1,0"/>
-                                <Setter Property="Foreground" Value="#FF008E43"/>
-                            </Trigger>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <!-- Если не выбрана: подсветка -->
-                                <Setter TargetName="TabBorder" Property="Background" Value="#E8F5E9"/>
-                                <Setter TargetName="TabBorder" Property="BorderBrush" Value="#FF008E43"/>
-                                <Setter TargetName="TabBorder" Property="BorderThickness" Value="1,1,1,0"/>
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
-
-        <Style x:Key="StandardButtonStyle" TargetType="Button">
-                <Setter Property="Foreground" Value="White"/>
-                <Style.Triggers>
-                    <Trigger Property="IsMouseOver" Value="True">
-                        <Setter Property="Background" Value="DarkGreen"/>
-                    </Trigger>
-                </Style.Triggers>
-            </Style>
-        <Style x:Key="CloseButtonStyle" TargetType="Button">
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="Button">
-                        <Grid>
-                            <Ellipse Fill="{TemplateBinding Background}" 
-                                     Stroke="{TemplateBinding BorderBrush}" 
-                                     StrokeThickness="{TemplateBinding BorderThickness}"/>
-                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                        </Grid>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter Property="Foreground" Value="Black"/>
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-            <Setter Property="Background" Value="IndianRed"/>
-            <Setter Property="Foreground" Value="IndianRed"/>
-            <Setter Property="BorderBrush" Value="Gray"/>
-            <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="FontWeight" Value="Bold"/>
-            <Setter Property="FontSize" Value="12"/>
-        </Style>
-        <Style x:Key="MaximizeButtonStyle" TargetType="Button">
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="Button">
-                        <Grid>
-                            <Ellipse Fill="{TemplateBinding Background}" 
-                             Stroke="{TemplateBinding BorderBrush}" 
-                             StrokeThickness="{TemplateBinding BorderThickness}"/>
-                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                        </Grid>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter Property="Foreground" Value="Black"/>
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-            <Setter Property="Background" Value="LightGreen"/>
-            <Setter Property="Foreground" Value="LightGreen"/>
-            <Setter Property="BorderBrush" Value="Gray"/>
-            <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="FontWeight" Value="Bold"/>
-            <Setter Property="FontSize" Value="12"/>
-        </Style>
-        <Style x:Key="MinimizeButtonStyle" TargetType="Button">
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="Button">
-                        <Grid>
-                            <Ellipse Fill="{TemplateBinding Background}" 
-                                     Stroke="{TemplateBinding BorderBrush}" 
-                                     StrokeThickness="{TemplateBinding BorderThickness}"/>
-                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                        </Grid>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter Property="Foreground" Value="Black"/>
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-            <Setter Property="Background" Value="LightGoldenrodYellow"/>
-            <Setter Property="Foreground" Value="LightGoldenrodYellow"/>
-            <Setter Property="BorderBrush" Value="Gray"/>
-            <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="FontWeight" Value="Bold"/>
-            <Setter Property="FontSize" Value="12"/>
-        </Style>
-    </Window.Resources>
-
     <Grid>
-        <Border CornerRadius="12"
-                Background="White"
-                BorderBrush="#FF008E43"
+        <Border x:Name="MainBorder"
+                CornerRadius="12"
+                Background="{StaticResource BgBrush}"
+                BorderBrush="{StaticResource AccentBrush}"
                 BorderThickness="1">
             <Grid>
-                <!-- Верхняя панель (заголовок) -->
-                <Border Height="30" 
-                        CornerRadius="12 12 0 0"
-                        Background="#FF008E43" 
-                        VerticalAlignment="Top"
-                        MouseDown="Border_MouseDown">
-                    
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="200"/>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="200"/>
-                            </Grid.ColumnDefinitions>
-                        <StackPanel Orientation="Horizontal" Grid.Column="0">
-                            <Button Style="{StaticResource CloseButtonStyle}" 
-        Content="✕" 
-        Click="CloseButton_Click"
-        HorizontalAlignment="Center" 
-        VerticalAlignment="Center"
-        Width="20" 
-        Height="20" 
-        Margin="5,0"
-        WindowChrome.IsHitTestVisibleInChrome="True"/>
-                            <Button Style="{StaticResource MinimizeButtonStyle}" 
-Content="_" 
-Click="HideButton_Click"
-HorizontalAlignment="Center" 
-VerticalAlignment="Center"
-Width="20" 
-Height="20" 
-Margin="0"
-WindowChrome.IsHitTestVisibleInChrome="True"/>
-                            <Button Style="{StaticResource MaximizeButtonStyle}" 
-        Content="⛶" 
-        Click="MaxButton_Click"
-        HorizontalAlignment="Center" 
-        VerticalAlignment="Center"
-        Width="20" 
-        Height="20" 
-        Margin="5,0"
-        WindowChrome.IsHitTestVisibleInChrome="True"/>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+
+                <Border x:Name="TitleBarBorder"
+                        Grid.Row="0"
+                        Background="Transparent"
+                        MouseDown="Border_MouseDown"
+                        Margin="16,10,10,8">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="35"/>
+                            <ColumnDefinition Width="35"/>
+                            <ColumnDefinition Width="35"/>
+                        </Grid.ColumnDefinitions>
+
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <TextBlock Text="TNovDesktop"
+                                       Foreground="{StaticResource AccentBrush}"
+                                       FontSize="22"
+                                       FontWeight="Bold"
+                                       VerticalAlignment="Center"/>
+                            <TextBlock x:Name="VersionTextBlock"
+                                       Foreground="{StaticResource MutedBrush}"
+                                       FontSize="14"
+                                       VerticalAlignment="Center"
+                                       Margin="10,4,0,0"/>
                         </StackPanel>
-                        <StackPanel Orientation="Horizontal" Grid.Column="1" HorizontalAlignment="Center">
-                            <TextBlock Text="TNovDesktop" 
-           Foreground="White"
-           VerticalAlignment="Center"
-           FontWeight="SemiBold"/>
-                            <TextBlock x:Name="VersionTextBlock" 
-           Foreground="White"
-           VerticalAlignment="Center"
-           Margin="5,0"
-           FontWeight="SemiBold"/>
-                        </StackPanel>
-                        <StackPanel Orientation="Horizontal" Grid.Column="2" HorizontalAlignment="Right">
-                            <Button Style="{StaticResource StandardButtonStyle}" 
-Content="_" 
-Click="HideButton_Click"
-HorizontalAlignment="Center" 
-VerticalAlignment="Center"
-Width="20" 
-Height="20" 
-Margin="0,0,5,0"
-WindowChrome.IsHitTestVisibleInChrome="True" Background="{x:Null}" BorderBrush="{x:Null}"/>
-                            <Button Style="{StaticResource StandardButtonStyle}" 
-Content="⛶" 
-Click="MaxButton_Click"
-HorizontalAlignment="Center" 
-VerticalAlignment="Center"
-Width="20" 
-Height="20" 
-Margin="0"
-WindowChrome.IsHitTestVisibleInChrome="True" Background="{x:Null}" BorderBrush="{x:Null}"/>
-                            <Button Style="{StaticResource StandardButtonStyle}"
-Content="✕" 
-Click="CloseButton_Click"
-HorizontalAlignment="Center" 
-VerticalAlignment="Center"
-Width="20" 
-Height="20" 
-Margin="5,0,10,0"
-WindowChrome.IsHitTestVisibleInChrome="True" BorderBrush="{x:Null}" Background="{x:Null}">
-                                
-                            </Button>
-                            <Button Content="🌐 Перейти в полную версию" Visibility="Collapsed"
-        Click="OpenWebsite_Click"
-        Background="Transparent"
-        Foreground="White"
-        BorderThickness="0"
-        FontSize="12"
-        FontWeight="Normal"
-        Cursor="Hand"
-        VerticalAlignment="Center"
-        HorizontalAlignment="Right"
-        Margin="0,0,5,0"
-        WindowChrome.IsHitTestVisibleInChrome="True">
-                                <Button.Template>
-                                    <ControlTemplate TargetType="Button">
-                                        <TextBlock Text="{TemplateBinding Content}" 
-                       Foreground="{TemplateBinding Foreground}"
-                       Background="Transparent"
-                       TextDecorations="Underline"/>
-                                    </ControlTemplate>
-                                </Button.Template>
-                            </Button>
-                        </StackPanel>
+
+                        <Button x:Name="MuteNotificationsButton"
+                                Grid.Column="1"
+                                Content="&#xE91C;"
+                                Style="{StaticResource TitleMuteButtonStyle}"
+                                Click="MuteNotificationsButton_Click"
+                                WindowChrome.IsHitTestVisibleInChrome="True">
+                            <Button.ContextMenu>
+                                <ContextMenu x:Name="TitleMuteMenu"
+                                             Style="{StaticResource DarkContextMenuStyle}"
+                                             Placement="Bottom"
+                                             Opened="NotificationMuteMenu_Opened">
+                                    <MenuItem x:Name="TitleMuteFor30MinutesItem"
+                                              Header="На 30 минут"
+                                              Style="{StaticResource DarkMenuItemStyle}"
+                                              Click="MuteFor30Minutes_Click"/>
+                                    <MenuItem x:Name="TitleMuteUntilRestartItem"
+                                              Header="До перезапуска приложения"
+                                              Style="{StaticResource DarkMenuItemStyle}"
+                                              Click="MuteUntilRestart_Click"/>
+                                    <Separator x:Name="TitleUnmuteSeparator"
+                                               Style="{StaticResource DarkMenuSeparatorStyle}"
+                                               Visibility="Collapsed"/>
+                                    <MenuItem x:Name="TitleUnmuteNotificationsItem"
+                                              Header="Включить уведомления"
+                                              Style="{StaticResource DarkMenuItemStyle}"
+                                              Click="UnmuteNotifications_Click"
+                                              Visibility="Collapsed"/>
+                                </ContextMenu>
+                            </Button.ContextMenu>
+                        </Button>
+                        <Button Content="–"
+                                Grid.Column="2"
+                                Style="{StaticResource CloseButtonStyleMini}"
+                                Click="HideButton_Click"
+                                WindowChrome.IsHitTestVisibleInChrome="True"/>
+                        <Button Content="⛶"
+                                Grid.Column="3"
+                                Style="{StaticResource CloseButtonStyleMini}"
+                                Click="MaxButton_Click"
+                                WindowChrome.IsHitTestVisibleInChrome="True"/>
+                        <Button Content="✕"
+                                Grid.Column="4"
+                                Style="{StaticResource CloseButtonStyleMini}"
+                                Click="CloseButton_Click"
+                                WindowChrome.IsHitTestVisibleInChrome="True"/>
                     </Grid>
-                    
-                        
-
-                        
-
-                        
-
-                        
-                    
                 </Border>
 
-                <!-- Вкладки -->
-                <TabControl x:Name="MainTabControl" Margin="0,30,0,0"
-            Background="Transparent"
-            ItemContainerStyle="{StaticResource RoundedTabItemStyle}">
+                <local:PersistentTabControl x:Name="MainTabControl"
+                            Grid.Row="1"
+                            Margin="10,0,10,10"
+                            Style="{StaticResource DarkTabControlStyle}"
+                            ItemContainerStyle="{StaticResource RoundedTabItemStyle}">
                     <TabItem>
                         <TabItem.Header>
                             <StackPanel Orientation="Horizontal">
                                 <TextBlock Text="TNovPro" VerticalAlignment="Center" Margin="0,0,6,0"/>
-                                <Button Content="⟳" 
-                        Style="{StaticResource RefreshButtonStyle}"
-                        Width="20" Height="20"
-                        Click="MessengerTabRefresh_Click"
-                        WindowChrome.IsHitTestVisibleInChrome="True"/>
+                                <Border x:Name="MessengerTabBadge"
+                                        Style="{StaticResource TabUnreadBadgeStyle}"
+                                        Visibility="Collapsed">
+                                    <TextBlock x:Name="MessengerTabBadgeText"
+                                               Text="0"
+                                               Foreground="White"
+                                               FontSize="11"
+                                               FontWeight="Bold"
+                                               HorizontalAlignment="Center"
+                                               VerticalAlignment="Center"/>
+                                </Border>
+                                <Button Content="⟳"
+                                        Style="{StaticResource RefreshButtonStyle}"
+                                        Click="MessengerTabRefresh_Click"
+                                        WindowChrome.IsHitTestVisibleInChrome="True"/>
                             </StackPanel>
                         </TabItem.Header>
                         <local:MessengerControl x:Name="MessengerControl"/>
@@ -313,11 +141,10 @@ WindowChrome.IsHitTestVisibleInChrome="True" BorderBrush="{x:Null}" Background="
                         <TabItem.Header>
                             <StackPanel Orientation="Horizontal">
                                 <TextBlock Text="Задания" VerticalAlignment="Center" Margin="0,0,6,0"/>
-                                <Button Content="⟳" 
-                    Style="{StaticResource RefreshButtonStyle}"
-                    Width="20" Height="20"
-                    Click="ProjectsTabRefresh_Click"
-                    WindowChrome.IsHitTestVisibleInChrome="True"/>
+                                <Button Content="⟳"
+                                        Style="{StaticResource RefreshButtonStyle}"
+                                        Click="ProjectsTabRefresh_Click"
+                                        WindowChrome.IsHitTestVisibleInChrome="True"/>
                             </StackPanel>
                         </TabItem.Header>
                         <local:ProjectControl x:Name="ProjectControl"/>
@@ -325,25 +152,23 @@ WindowChrome.IsHitTestVisibleInChrome="True" BorderBrush="{x:Null}" Background="
                     <TabItem>
                         <TabItem.Header>
                             <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="Yougile" VerticalAlignment="Center" Margin="0,0,6,0"/>
-                                <Button Content="⟳" 
-            Style="{StaticResource RefreshButtonStyle}"
-            Width="20" Height="20"
-            Click="YougileTabRefresh_Click"
-            WindowChrome.IsHitTestVisibleInChrome="True"/>
+                                <TextBlock Text="Чек-листы" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                <Button Content="⟳"
+                                        Style="{StaticResource RefreshButtonStyle}"
+                                        Click="ChecklistsTabRefresh_Click"
+                                        WindowChrome.IsHitTestVisibleInChrome="True"/>
                             </StackPanel>
                         </TabItem.Header>
-                        <local:YougileControl x:Name="YougileControl"/>
+                        <local:ChecklistsControl x:Name="ChecklistsControl"/>
                     </TabItem>
                     <TabItem>
                         <TabItem.Header>
                             <StackPanel Orientation="Horizontal">
                                 <TextBlock Text="Vitro" VerticalAlignment="Center" Margin="0,0,6,0"/>
-                                <Button Content="⟳" 
-                                Style="{StaticResource RefreshButtonStyle}"
-                                Width="20" Height="20"
-                                Click="Vitro22TabRefresh_Click"
-                                WindowChrome.IsHitTestVisibleInChrome="True"/>
+                                <Button Content="⟳"
+                                        Style="{StaticResource RefreshButtonStyle}"
+                                        Click="Vitro22TabRefresh_Click"
+                                        WindowChrome.IsHitTestVisibleInChrome="True"/>
                             </StackPanel>
                         </TabItem.Header>
                         <local:Vitro22Control x:Name="Vitro22Control"/>
@@ -352,11 +177,10 @@ WindowChrome.IsHitTestVisibleInChrome="True" BorderBrush="{x:Null}" Background="
                         <TabItem.Header>
                             <StackPanel Orientation="Horizontal">
                                 <TextBlock Text="Vitro-CAD" VerticalAlignment="Center" Margin="0,0,6,0"/>
-                                <Button Content="⟳" 
-            Style="{StaticResource RefreshButtonStyle}"
-            Width="20" Height="20"
-            Click="Vitro25TabRefresh_Click"
-            WindowChrome.IsHitTestVisibleInChrome="True"/>
+                                <Button Content="⟳"
+                                        Style="{StaticResource RefreshButtonStyle}"
+                                        Click="Vitro25TabRefresh_Click"
+                                        WindowChrome.IsHitTestVisibleInChrome="True"/>
                             </StackPanel>
                         </TabItem.Header>
                         <local:Vitro25Control x:Name="Vitro25Control"/>
@@ -365,11 +189,10 @@ WindowChrome.IsHitTestVisibleInChrome="True" BorderBrush="{x:Null}" Background="
                         <TabItem.Header>
                             <StackPanel Orientation="Horizontal">
                                 <TextBlock Text="Timetta" VerticalAlignment="Center" Margin="0,0,6,0"/>
-                                <Button Content="⟳" 
-Style="{StaticResource RefreshButtonStyle}"
-Width="20" Height="20"
-Click="TimettaTabRefresh_Click"
-WindowChrome.IsHitTestVisibleInChrome="True"/>
+                                <Button Content="⟳"
+                                        Style="{StaticResource RefreshButtonStyle}"
+                                        Click="TimettaTabRefresh_Click"
+                                        WindowChrome.IsHitTestVisibleInChrome="True"/>
                             </StackPanel>
                         </TabItem.Header>
                         <local:TimettaControl x:Name="TimettaControl"/>
@@ -378,11 +201,10 @@ WindowChrome.IsHitTestVisibleInChrome="True"/>
                         <TabItem.Header>
                             <StackPanel Orientation="Horizontal">
                                 <TextBlock Text="Почта" VerticalAlignment="Center" Margin="0,0,6,0"/>
-                                <Button Content="⟳" 
-Style="{StaticResource RefreshButtonStyle}"
-Width="20" Height="20"
-Click="MailTabRefresh_Click"
-WindowChrome.IsHitTestVisibleInChrome="True"/>
+                                <Button Content="⟳"
+                                        Style="{StaticResource RefreshButtonStyle}"
+                                        Click="MailTabRefresh_Click"
+                                        WindowChrome.IsHitTestVisibleInChrome="True"/>
                             </StackPanel>
                         </TabItem.Header>
                         <local:MailControl x:Name="MailControl"/>
@@ -391,26 +213,40 @@ WindowChrome.IsHitTestVisibleInChrome="True"/>
                         <TabItem.Header>
                             <StackPanel Orientation="Horizontal">
                                 <TextBlock Text="Т.Про" VerticalAlignment="Center" Margin="0,0,6,0"/>
-                                <Button Content="⟳" 
-Style="{StaticResource RefreshButtonStyle}"
-Width="20" Height="20"
-Click="TProTabRefresh_Click"
-WindowChrome.IsHitTestVisibleInChrome="True"/>
+                                <Button Content="⟳"
+                                        Style="{StaticResource RefreshButtonStyle}"
+                                        Click="TProTabRefresh_Click"
+                                        WindowChrome.IsHitTestVisibleInChrome="True"/>
                             </StackPanel>
                         </TabItem.Header>
                         <local:TProControl x:Name="TProControl"/>
                     </TabItem>
-                </TabControl>
+                </local:PersistentTabControl>
             </Grid>
         </Border>
 
         <tb:TaskbarIcon x:Name="TrayIcon"
                         ToolTipText="TNovDesktop"
                         TrayLeftMouseDown="TrayIcon_TrayLeftMouseDown"
-                        Visibility="Collapsed">
+                        Visibility="Visible">
             <tb:TaskbarIcon.ContextMenu>
-                <ContextMenu>
+                <ContextMenu Opened="NotificationMuteMenu_Opened">
                     <MenuItem Header="Открыть" Click="ShowWindow_Click"/>
+                    <Separator/>
+                    <MenuItem x:Name="MuteNotificationsMenu" Header="Отключить уведомления">
+                        <MenuItem x:Name="MuteFor30MinutesItem"
+                                  Header="На 30 минут"
+                                  Click="MuteFor30Minutes_Click"/>
+                        <MenuItem x:Name="MuteUntilRestartItem"
+                                  Header="До перезапуска приложения"
+                                  Click="MuteUntilRestart_Click"/>
+                        <Separator x:Name="UnmuteSeparator" Visibility="Collapsed"/>
+                        <MenuItem x:Name="UnmuteNotificationsItem"
+                                  Header="Включить уведомления"
+                                  Click="UnmuteNotifications_Click"
+                                  Visibility="Collapsed"/>
+                    </MenuItem>
+                    <Separator/>
                     <MenuItem Header="Выйти" Click="ExitApp_Click"/>
                 </ContextMenu>
             </tb:TaskbarIcon.ContextMenu>

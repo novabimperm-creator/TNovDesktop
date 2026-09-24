@@ -9,23 +9,26 @@
                      IsIndeterminate="True"
                      Height="3"
                      VerticalAlignment="Top"
+                     Foreground="{StaticResource AccentBrush}"
                      Visibility="Collapsed" />
 
         <Border x:Name="ErrorPanel"
-                Background="#F0F0F0"
+                Background="{StaticResource CardBrush}"
                 Visibility="Collapsed">
             <StackPanel VerticalAlignment="Center"
                         HorizontalAlignment="Center">
                 <TextBlock Text="😕 Не удалось загрузить мессенджер"
                            FontSize="18"
+                           Foreground="White"
                            Margin="0,0,0,10" />
                 <TextBlock x:Name="ErrorDetails"
                            TextWrapping="Wrap"
+                           Foreground="{StaticResource MutedBrush}"
                            Margin="0,0,0,20" />
                 <Button Content="Повторить"
+                        Style="{StaticResource RunButtonStyle}"
                         Click="RetryButton_Click"
-                        Width="100"
-                        Height="30" />
+                        Width="120" />
             </StackPanel>
         </Border>
     </Grid>

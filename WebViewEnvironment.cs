@@ -14,7 +14,7 @@ namespace TNovDesktop
     internal static class WebViewEnvironment
     {
         private static readonly SemaphoreSlim _gate = new(1, 1);
-        private static CoreWebView2Environment _shared;
+        private static CoreWebView2Environment? _shared;
 
         // Флаги передаются базовому браузеру Edge WebView2 при старте процесса.
         //  --autoplay-policy=no-user-gesture-required — иначе входящее аудио в звонках
@@ -50,6 +50,7 @@ namespace TNovDesktop
                         userDataFolder: userDataFolder,
                         options: options);
 
+                    _shared.BrowserProcessExited += OnBrowserProcessExited;
                     Log.Write($"[WEBVIEW2] Окружение создано. Runtime={_shared.BrowserVersionString}; args={BrowserArguments}");
                 }
             }
@@ -59,6 +60,21 @@ namespace TNovDesktop
             }
 
             return _shared;
+        }
+
+        /// <summary>
+        /// Сбрасывает кэш окружения после смерти browser-процесса, чтобы вкладки
+        /// могли создать новое через GetAsync.
+        /// </summary>
+        public static void Reset()
+        {
+            _shared = null;
+        }
+
+        private static void OnBrowserProcessExited(object? sender, CoreWebView2BrowserProcessExitedEventArgs e)
+        {
+            Log.Write($"[WEBVIEW2] BrowserProcessExited kind={e.BrowserProcessExitKind} pid={e.BrowserProcessId}");
+            _shared = null;
         }
     }
 }

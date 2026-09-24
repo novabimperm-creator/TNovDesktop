@@ -2,12 +2,16 @@
 using Newtonsoft.Json;
 using System.ComponentModel;
 using System.Diagnostics;
+using System.Globalization;
 using System.IO;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
+using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using System.Windows.Shell;
 using System.Windows.Threading;
 using TNovClient;
 using MessageBox = System.Windows.MessageBox;
@@ -19,26 +23,31 @@ namespace TNovDesktop
         [DllImport("shell32.dll", SetLastError = true)]
         private static extern void SetCurrentProcessExplicitAppUserModelID([MarshalAs(UnmanagedType.LPWStr)] string AppID);
 
+        [DllImport("user32.dll", CharSet = CharSet.Auto)]
+        private static extern bool DestroyIcon(IntPtr handle);
+
         private string pendingConversationId = null;
         public static string novaserver = "//fs-nova/Distr/0.For Admin/";
         private DispatcherTimer _tabHoverTimer;
         private TabItem _hoveredTabItem;
         private DispatcherTimer _taskMonitorTimer;
         private DateTime _lastTaskCheckTime;
-        private Mutex _appMutex;
         private DispatcherTimer _updateCheckTimer;
         private bool _isCheckingUpdate = false;
+        private string _notifiedUpdateVersion = string.Empty;
         private const string UpdateFolderPath = @"\\fs-nova\Distr\0.For Admin\_TNov\actual\desktop\";
+        private Rect _restoreBounds;
+        private bool _isWorkAreaMaximized;
+        private bool _suppressStateChange;
+        private System.Drawing.Icon _trayIconBase;
+        private System.Drawing.Icon _trayIconBadged;
+        private DateTime? _notificationsMutedUntil;
+        private bool _muteNotificationsUntilRestart;
+        private DispatcherTimer? _notificationMuteTimer;
+        private string _trayUnreadDetail = "";
 
         public MainWindow()
         {
-            // Проверка на единственный экземпляр
-            if (!CheckSingleInstance())
-            {
-                // Если приложение уже запущено — завершаем текущий процесс
-                Environment.Exit(0);
-                return;
-            }
             InitializeComponent();
 
             Version version = Assembly.GetExecutingAssembly().GetName().Version;
@@ -67,14 +76,17 @@ namespace TNovDesktop
             {
                 var stream = Application.GetResourceStream(new Uri("pack://application:,,,/Resources/logotray.ico")).Stream;
                 TrayIcon.Icon = new System.Drawing.Icon(stream);
+                _trayIconBase = TrayIcon.Icon;
             }
             catch { }
 
             Loaded += MainWindow_Loaded;
             Closing += MainWindow_Closing;
+            StateChanged += MainWindow_StateChanged;
 
             // Подписываемся на запросы показа уведомлений от контрола
             MessengerControl.ShowToastRequested += OnMessengerToastRequested;
+            MessengerControl.SidebarBadgesChanged += OnMessengerSidebarBadgesChanged;
         }
 
         private void MainWindow_Loaded(object sender, RoutedEventArgs e)
@@ -88,8 +100,135 @@ namespace TNovDesktop
 
         private void OnMessengerToastRequested(string title, string body, string conversationId)
         {
-            pendingConversationId = conversationId;
-            ShowToastNotification(title, body);
+            pendingConversationId = string.IsNullOrWhiteSpace(conversationId) ? null : conversationId;
+            ShowToastNotification(title, body, () =>
+            {
+                SelectTabByTitle("TNovPro");
+                ShowMainWindow();
+            });
+        }
+
+        private void OnMessengerSidebarBadgesChanged(IReadOnlyDictionary<string, int> items, int total)
+        {
+            bool show = total > 0;
+            MessengerTabBadge.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
+            MessengerTabBadgeText.Text = total > 99 ? "99+" : total.ToString();
+
+            var parts = items.Where(kv => kv.Value > 0).Select(kv => $"{kv.Key}: {kv.Value}").ToList();
+            string detail = parts.Count > 0
+                ? string.Join(", ", parts)
+                : (show ? $"Непрочитанные: {total}" : "");
+
+            MessengerTabBadge.ToolTip = string.IsNullOrEmpty(detail) ? null : detail;
+            _trayUnreadDetail = detail;
+            RefreshTrayToolTip();
+
+            if (AppTaskbarInfo != null)
+                AppTaskbarInfo.Overlay = show ? CreateBadgeOverlay(total) : null;
+
+            UpdateTrayIconBadge(total);
+        }
+
+        private ImageSource CreateBadgeOverlay(int count)
+        {
+            string text = count > 99 ? "99+" : count.ToString();
+            int width = text.Length > 1 ? 20 : 16;
+            const int height = 16;
+            double dip = 1.0;
+            try { dip = VisualTreeHelper.GetDpi(this).PixelsPerDip; } catch { }
+
+            var visual = new DrawingVisual();
+            using (var dc = visual.RenderOpen())
+            {
+                var fill = new SolidColorBrush(Color.FromRgb(0xE5, 0x39, 0x35));
+                fill.Freeze();
+                dc.DrawRoundedRectangle(fill, null, new Rect(0, 0, width, height), 8, 8);
+
+                double fontSize = text.Length > 2 ? 8 : 10;
+                var ft = new FormattedText(
+                    text,
+                    CultureInfo.CurrentCulture,
+                    FlowDirection.LeftToRight,
+                    new Typeface("Segoe UI"),
+                    fontSize,
+                    Brushes.White,
+                    dip);
+                dc.DrawText(ft, new Point((width - ft.Width) / 2, (height - ft.Height) / 2));
+            }
+
+            var bmp = new RenderTargetBitmap(width, height, 96, 96, PixelFormats.Pbgra32);
+            bmp.Render(visual);
+            bmp.Freeze();
+            return bmp;
+        }
+
+        private void UpdateTrayIconBadge(int count)
+        {
+            if (_trayIconBase == null)
+                return;
+
+            if (count <= 0)
+            {
+                TrayIcon.Icon = _trayIconBase;
+                DisposeTrayBadgeIcon();
+                return;
+            }
+
+            try
+            {
+                var created = CreateBadgedTrayIcon(_trayIconBase, count);
+                TrayIcon.Icon = created;
+                DisposeTrayBadgeIcon();
+                _trayIconBadged = created;
+            }
+            catch
+            {
+                TrayIcon.Icon = _trayIconBase;
+            }
+        }
+
+        private static System.Drawing.Icon CreateBadgedTrayIcon(System.Drawing.Icon baseIcon, int count)
+        {
+            string text = count > 99 ? "99+" : count.ToString();
+            using var bmp = new System.Drawing.Bitmap(32, 32);
+            using (var g = System.Drawing.Graphics.FromImage(bmp))
+            {
+                g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+                g.PixelOffsetMode = System.Drawing.Drawing2D.PixelOffsetMode.HighQuality;
+                g.Clear(System.Drawing.Color.Transparent);
+                g.DrawIcon(baseIcon, new System.Drawing.Rectangle(0, 0, 32, 32));
+
+                var badge = new System.Drawing.Rectangle(text.Length > 1 ? 8 : 14, 14, text.Length > 1 ? 24 : 18, 18);
+                using (var fill = new System.Drawing.SolidBrush(System.Drawing.Color.FromArgb(229, 57, 53)))
+                    g.FillEllipse(fill, badge);
+
+                using var font = new System.Drawing.Font("Segoe UI", text.Length > 2 ? 7f : 8f, System.Drawing.FontStyle.Bold);
+                var sf = new System.Drawing.StringFormat
+                {
+                    Alignment = System.Drawing.StringAlignment.Center,
+                    LineAlignment = System.Drawing.StringAlignment.Center
+                };
+                g.DrawString(text, font, System.Drawing.Brushes.White, badge, sf);
+            }
+
+            IntPtr handle = bmp.GetHicon();
+            try
+            {
+                using var tmp = System.Drawing.Icon.FromHandle(handle);
+                return (System.Drawing.Icon)tmp.Clone();
+            }
+            finally
+            {
+                DestroyIcon(handle);
+            }
+        }
+
+        private void DisposeTrayBadgeIcon()
+        {
+            if (_trayIconBadged == null)
+                return;
+            try { _trayIconBadged.Dispose(); } catch { }
+            _trayIconBadged = null;
         }
 
 
@@ -162,17 +301,192 @@ namespace TNovDesktop
             ToastNotificationManagerCompat.OnActivated += OnToastActivated;
         }
 
-        private void ShowToastNotification(string title, string message)
+        private bool AreNotificationsMuted =>
+            _muteNotificationsUntilRestart ||
+            (_notificationsMutedUntil.HasValue && _notificationsMutedUntil.Value > DateTime.Now);
+
+        private void ShowToastNotification(string title, string message, Action onClick = null)
         {
+            if (AreNotificationsMuted)
+                return;
+
             try
             {
                 NotificationWindow notificationWindow = new NotificationWindow();
-                notificationWindow.ShowNotification(title, message);
+                notificationWindow.ShowNotification(title, message, onClick: onClick ?? ShowMainWindow);
             }
             catch (Exception ex)
             {
                 MessageBox.Show($"{title}\n\n{message}", "TNovDesktop", MessageBoxButton.OK, MessageBoxImage.Information);
             }
+        }
+
+        private void NotificationMuteMenu_Opened(object sender, RoutedEventArgs e)
+        {
+            UpdateNotificationMuteMenu();
+        }
+
+        private void MuteNotificationsButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (TitleMuteMenu == null)
+                return;
+
+            UpdateNotificationMuteMenu();
+            TitleMuteMenu.PlacementTarget = MuteNotificationsButton;
+            TitleMuteMenu.Placement = PlacementMode.Bottom;
+            TitleMuteMenu.IsOpen = true;
+            e.Handled = true;
+        }
+
+        private void MuteFor30Minutes_Click(object sender, RoutedEventArgs e)
+        {
+            MuteNotifications(untilRestart: false, duration: TimeSpan.FromMinutes(30));
+        }
+
+        private void MuteUntilRestart_Click(object sender, RoutedEventArgs e)
+        {
+            MuteNotifications(untilRestart: true, duration: null);
+        }
+
+        private void UnmuteNotifications_Click(object sender, RoutedEventArgs e)
+        {
+            ClearNotificationMute();
+        }
+
+        private void MuteNotifications(bool untilRestart, TimeSpan? duration)
+        {
+            _muteNotificationsUntilRestart = untilRestart;
+            _notificationsMutedUntil = untilRestart || duration == null
+                ? null
+                : DateTime.Now.Add(duration.Value);
+
+            StopNotificationMuteTimer();
+            if (_notificationsMutedUntil.HasValue)
+            {
+                TimeSpan remaining = _notificationsMutedUntil.Value - DateTime.Now;
+                if (remaining <= TimeSpan.Zero)
+                {
+                    ClearNotificationMute();
+                    return;
+                }
+
+                _notificationMuteTimer = new DispatcherTimer { Interval = remaining };
+                _notificationMuteTimer.Tick += NotificationMuteTimer_Tick;
+                _notificationMuteTimer.Start();
+            }
+
+            UpdateNotificationMuteMenu();
+            RefreshTrayToolTip();
+        }
+
+        private void NotificationMuteTimer_Tick(object sender, EventArgs e)
+        {
+            ClearNotificationMute();
+        }
+
+        private void ClearNotificationMute()
+        {
+            _muteNotificationsUntilRestart = false;
+            _notificationsMutedUntil = null;
+            StopNotificationMuteTimer();
+            UpdateNotificationMuteMenu();
+            RefreshTrayToolTip();
+        }
+
+        private void StopNotificationMuteTimer()
+        {
+            if (_notificationMuteTimer == null)
+                return;
+
+            _notificationMuteTimer.Stop();
+            _notificationMuteTimer.Tick -= NotificationMuteTimer_Tick;
+            _notificationMuteTimer = null;
+        }
+
+        private void UpdateNotificationMuteMenu()
+        {
+            UpdateMuteMenuItems(
+                MuteNotificationsMenu,
+                MuteFor30MinutesItem,
+                MuteUntilRestartItem,
+                UnmuteSeparator,
+                UnmuteNotificationsItem);
+
+            UpdateMuteMenuItems(
+                parent: null,
+                TitleMuteFor30MinutesItem,
+                TitleMuteUntilRestartItem,
+                TitleUnmuteSeparator,
+                TitleUnmuteNotificationsItem);
+
+            UpdateTitleMuteButton();
+        }
+
+        private void UpdateMuteMenuItems(
+            MenuItem? parent,
+            MenuItem? mute30,
+            MenuItem? muteUntilRestart,
+            Separator? unmuteSep,
+            MenuItem? unmute)
+        {
+            bool muted = AreNotificationsMuted;
+            if (parent != null)
+            {
+                parent.Header = muted
+                    ? GetNotificationMuteStatusText()
+                    : "Отключить уведомления";
+            }
+
+            if (mute30 != null)
+                mute30.IsChecked = muted && !_muteNotificationsUntilRestart && _notificationsMutedUntil.HasValue;
+
+            if (muteUntilRestart != null)
+                muteUntilRestart.IsChecked = muted && _muteNotificationsUntilRestart;
+
+            var unmuteVisibility = muted ? Visibility.Visible : Visibility.Collapsed;
+            if (unmuteSep != null)
+                unmuteSep.Visibility = unmuteVisibility;
+            if (unmute != null)
+                unmute.Visibility = unmuteVisibility;
+        }
+
+        private void UpdateTitleMuteButton()
+        {
+            if (MuteNotificationsButton == null)
+                return;
+
+            bool muted = AreNotificationsMuted;
+            MuteNotificationsButton.Content = muted ? "\uE7ED" : "\uE91C";
+            MuteNotificationsButton.ToolTip = muted
+                ? GetNotificationMuteStatusText()
+                : "Отключить уведомления";
+            MuteNotificationsButton.Foreground = muted
+                ? (Brush)FindResource("MutedBrush")
+                : Brushes.White;
+        }
+
+        private string GetNotificationMuteStatusText()
+        {
+            if (_muteNotificationsUntilRestart)
+                return "Уведомления отключены до перезапуска";
+
+            if (_notificationsMutedUntil.HasValue)
+                return $"Уведомления отключены до {_notificationsMutedUntil.Value:HH:mm}";
+
+            return "Уведомления отключены";
+        }
+
+        private void RefreshTrayToolTip()
+        {
+            var parts = new List<string>();
+            if (!string.IsNullOrEmpty(_trayUnreadDetail))
+                parts.Add(_trayUnreadDetail);
+            if (AreNotificationsMuted)
+                parts.Add(GetNotificationMuteStatusText());
+
+            TrayIcon.ToolTipText = parts.Count == 0
+                ? "TNovDesktop"
+                : $"TNovDesktop — {string.Join("; ", parts)}";
         }
 
         private void OnToastActivated(ToastNotificationActivatedEventArgsCompat e)
@@ -190,7 +504,12 @@ namespace TNovDesktop
 
         public void NavigateToProjectsAndRefresh()
         {
-            // Ищем вкладку «Задания» по заголовку (может быть TextBlock в StackPanel)
+            SelectTabByTitle("Задания");
+            ProjectControl.RefreshData();
+        }
+
+        private void SelectTabByTitle(string title)
+        {
             foreach (TabItem item in MainTabControl.Items)
             {
                 string header = null;
@@ -199,14 +518,12 @@ namespace TNovDesktop
                 else if (item.Header is StackPanel sp)
                     header = sp.Children.OfType<TextBlock>().FirstOrDefault()?.Text;
 
-                if (header == "Задания")
+                if (header == title)
                 {
                     item.IsSelected = true;
                     break;
                 }
             }
-            // Принудительно обновляем данные
-            ProjectControl.RefreshData();
         }
 
         #endregion
@@ -215,9 +532,11 @@ namespace TNovDesktop
 
         private void MainWindow_Closing(object sender, CancelEventArgs e)
         {
+            if (App.AllowExit)
+                return;
+
             e.Cancel = true;
             Hide();
-            TrayIcon.Visibility = Visibility.Visible;
         }
 
         private void TrayIcon_TrayLeftMouseDown(object sender, RoutedEventArgs e)
@@ -232,8 +551,10 @@ namespace TNovDesktop
 
         private void ExitApp_Click(object sender, RoutedEventArgs e)
         {
+            StopNotificationMuteTimer();
+            DisposeTrayBadgeIcon();
             TrayIcon.Dispose();
-            Application.Current.Shutdown();
+            App.RequestExit();
         }
 
         private void ShowMainWindow()
@@ -241,7 +562,6 @@ namespace TNovDesktop
             Show();
             WindowState = WindowState.Normal;
             Activate();
-            TrayIcon.Visibility = Visibility.Collapsed;
 
             if (!string.IsNullOrEmpty(pendingConversationId))
             {
@@ -251,61 +571,24 @@ namespace TNovDesktop
             }
         }
 
-        private bool CheckSingleInstance()
-        {
-            const string mutexName = "TNovDesktop_SingleInstance_1234"; // Уникальный идентификатор
-            bool createdNew;
-            _appMutex = new Mutex(true, mutexName, out createdNew);
-
-            Log.Write($"[STARTUP] exe={Environment.ProcessPath} primaryInstance={createdNew}");
-
-            if (createdNew)
-            {
-                // Приложение — первый экземпляр. Мьютекс будет удерживаться до выхода.
-                return true;
-            }
-
-            // Уже запущен другой экземпляр — активируем его окно
-            Log.Write("[STARTUP] Обнаружен уже запущенный экземпляр — активирую его и выхожу.");
-            ActivateExistingWindow();
-            return false;
-        }
-
-        private static void ActivateExistingWindow()
-        {
-            IntPtr hWnd = FindWindow(null, "TNovDesktop");
-            if (hWnd != IntPtr.Zero)
-            {
-                ShowWindow(hWnd, SW_RESTORE);
-                SetForegroundWindow(hWnd);
-            }
-        }
-        // WinAPI объявления
-        [DllImport("user32.dll")]
-        private static extern IntPtr FindWindow(string lpClassName, string lpWindowName);
-
-        [DllImport("user32.dll")]
-        private static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
-
-        [DllImport("user32.dll")]
-        private static extern bool SetForegroundWindow(IntPtr hWnd);
-
-        private const int SW_RESTORE = 9;
-
         #endregion
 
         #region Кастомный заголовок и кнопки
 
         private void Border_MouseDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
         {
-            if (e.ChangedButton == System.Windows.Input.MouseButton.Left)
-                DragMove();
+            if (e.ChangedButton != System.Windows.Input.MouseButton.Left)
+                return;
+
+            if (_isWorkAreaMaximized)
+                RestoreFromWorkArea();
+
+            DragMove();
         }
 
         private void CloseButton_Click(object sender, RoutedEventArgs e)
         {
             Hide();
-            TrayIcon.Visibility = Visibility.Visible;
         }
 
         private void HideButton_Click(object sender, RoutedEventArgs e)
@@ -315,8 +598,71 @@ namespace TNovDesktop
 
         private void MaxButton_Click(object sender, RoutedEventArgs e)
         {
-            if (WindowState == WindowState.Maximized) WindowState = WindowState.Normal;
-            else WindowState = WindowState.Maximized;
+            ToggleWorkAreaMaximize();
+        }
+
+        private void MainWindow_StateChanged(object sender, EventArgs e)
+        {
+            if (_suppressStateChange)
+                return;
+
+            // Win+↑, Aero Snap и системное разворачивание: не даём окну
+            // перекрыть панель задач, а сажаем его в рабочую область монитора.
+            if (WindowState == WindowState.Maximized)
+            {
+                _suppressStateChange = true;
+                WindowState = WindowState.Normal;
+                _suppressStateChange = false;
+
+                if (_isWorkAreaMaximized)
+                    RestoreFromWorkArea();
+                else
+                    MaximizeToWorkArea();
+            }
+        }
+
+        private void ToggleWorkAreaMaximize()
+        {
+            if (_isWorkAreaMaximized)
+                RestoreFromWorkArea();
+            else
+                MaximizeToWorkArea();
+        }
+
+        private void MaximizeToWorkArea()
+        {
+            if (!_isWorkAreaMaximized)
+                _restoreBounds = new Rect(Left, Top, Width, Height);
+
+            Rect work = WindowWorkArea.Get(this);
+            Left = work.Left;
+            Top = work.Top;
+            Width = work.Width;
+            Height = work.Height;
+            _isWorkAreaMaximized = true;
+            ApplyMaximizedChrome(true);
+        }
+
+        private void RestoreFromWorkArea()
+        {
+            if (_restoreBounds.Width > 0 && _restoreBounds.Height > 0)
+            {
+                Left = _restoreBounds.X;
+                Top = _restoreBounds.Y;
+                Width = _restoreBounds.Width;
+                Height = _restoreBounds.Height;
+            }
+            _isWorkAreaMaximized = false;
+            ApplyMaximizedChrome(false);
+        }
+
+        private void ApplyMaximizedChrome(bool maximized)
+        {
+            MainBorder.CornerRadius = maximized ? new CornerRadius(0) : new CornerRadius(12);
+
+            var chrome = WindowChrome.GetWindowChrome(this);
+            if (chrome != null)
+                chrome.CornerRadius = maximized ? new CornerRadius(0) : new CornerRadius(12);
         }
 
         private void OpenWebsite_Click(object sender, RoutedEventArgs e)
@@ -346,6 +692,10 @@ namespace TNovDesktop
         {
             ProjectControl.RefreshData();
         }
+        private void ChecklistsTabRefresh_Click(object sender, RoutedEventArgs e)
+        {
+            ChecklistsControl.RefreshData();
+        }
         private void Vitro22TabRefresh_Click(object sender, RoutedEventArgs e)
         {
             Vitro22Control.WebView?.Reload();
@@ -365,10 +715,6 @@ namespace TNovDesktop
         private void TProTabRefresh_Click(object sender, RoutedEventArgs e)
         {
             TProControl.WebView?.Reload();
-        }
-        private void YougileTabRefresh_Click(object sender, RoutedEventArgs e)
-        {
-            YougileControl.WebView?.Reload();
         }
 
         #endregion
@@ -445,8 +791,11 @@ namespace TNovDesktop
                 string title = $"{model} {verb} задания:";
                 string message = string.Join(", ", taskDescs);
 
-                NotificationWindow notificationWindow = new NotificationWindow();
-                notificationWindow.ShowNotification(title, message);
+                ShowToastNotification(title, message, () =>
+                {
+                    NavigateToProjectsAndRefresh();
+                    ShowMainWindow();
+                });
             }
         }
         #endregion
@@ -464,34 +813,20 @@ namespace TNovDesktop
             _isCheckingUpdate = true;
             try
             {
-                bool hasUpdate = await Task.Run(() => CheckForUpdateInFolder());
-                if (hasUpdate)
-                {
-                    Dispatcher.Invoke(() =>
-                    {
-                        ShowMainWindow();
-                        var result = MessageBox.Show(
-                            "Доступна новая версия приложения. Установить сейчас?",
-                            "Обновление TNovDesktop",
-                            MessageBoxButton.YesNo,
-                            MessageBoxImage.Information);
+                string availableVersion = await Task.Run(ReadAvailableServerVersion);
+                if (string.IsNullOrEmpty(availableVersion))
+                    return;
 
-                        if (result == MessageBoxResult.Yes)
-                        {
-                            // Запускаем обновление (например, setup.exe или .application файл)
-                            string installerPath = Path.Combine(UpdateFolderPath, "TNovDesktop.application");
-                            if (File.Exists(installerPath))
-                            {
-                                Process.Start(new ProcessStartInfo
-                                {
-                                    FileName = installerPath,
-                                    UseShellExecute = true
-                                });
-                            }
-                            Application.Current.Shutdown();
-                        }
-                    });
-                }
+                if (string.Equals(availableVersion, _notifiedUpdateVersion, StringComparison.Ordinal))
+                    return;
+
+                _notifiedUpdateVersion = availableVersion;
+                Dispatcher.Invoke(() =>
+                {
+                    ShowToastNotification(
+                        "Доступно обновление TNovDesktop",
+                        $"Версия {availableVersion}. TNovClient установит её после закрытия программы через трей.");
+                });
             }
             catch (Exception ex)
             {
@@ -502,26 +837,32 @@ namespace TNovDesktop
                 _isCheckingUpdate = false;
             }
         }
-        private bool CheckForUpdateInFolder()
+
+        private static string ReadAvailableServerVersion()
         {
             try
             {
                 if (!Directory.Exists(UpdateFolderPath))
-                    return false;
+                    return string.Empty;
 
                 string versionFile = Path.Combine(UpdateFolderPath, "version.txt");
                 if (!File.Exists(versionFile))
-                    return false;
+                    return string.Empty;
 
                 string serverVersionStr = File.ReadAllText(versionFile).Trim();
-                if (Version.TryParse(serverVersionStr, out Version serverVersion))
-                {
-                    Version currentVersion = Assembly.GetExecutingAssembly().GetName().Version;
-                    return serverVersion > currentVersion;
-                }
+                if (!Version.TryParse(serverVersionStr, out Version? serverVersion) || serverVersion == null)
+                    return string.Empty;
+
+                Version? currentVersion = Assembly.GetExecutingAssembly().GetName().Version;
+                if (currentVersion == null)
+                    return string.Empty;
+
+                return serverVersion > currentVersion ? serverVersion.ToString() : string.Empty;
             }
-            catch { /* сеть недоступна или файл не найден */ }
-            return false;
+            catch
+            {
+                return string.Empty;
+            }
         }
 
 

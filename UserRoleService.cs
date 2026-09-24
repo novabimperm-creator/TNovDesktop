@@ -4,7 +4,7 @@ namespace TNovDesktop
 {
     /// <summary>
     /// Общая логика определения подразделения и роли пользователя по файлу roles.txt.
-    /// Используется вкладками «Задания» и Yougile.
+    /// Используется вкладкой «Задания».
     /// </summary>
     internal static class UserRoleService
     {

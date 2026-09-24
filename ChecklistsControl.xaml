@@ -1,0 +1,190 @@
+<UserControl x:Class="TNovDesktop.ChecklistsControl"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             mc:Ignorable="d"
+             d:DesignHeight="450" d:DesignWidth="900">
+
+    <UserControl.Resources>
+        <!-- Цветная плашка уровня: подпись уровня + короткая расшифровка. -->
+        <DataTemplate x:Key="LevelBadge">
+            <StackPanel Margin="4,2">
+                <Border Background="{Binding Brush}" CornerRadius="6" Padding="8,2" HorizontalAlignment="Left">
+                    <TextBlock Text="{Binding LevelText}" Foreground="White" FontWeight="SemiBold" FontSize="12"/>
+                </Border>
+                <TextBlock Text="{Binding ShortText}" FontSize="11"
+                           Foreground="{StaticResource MutedBrush}" Margin="2,2,0,0"/>
+            </StackPanel>
+        </DataTemplate>
+
+        <Style x:Key="DetailLabelStyle" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{StaticResource MutedBrush}"/>
+            <Setter Property="Margin" Value="0,2"/>
+        </Style>
+        <Style x:Key="DetailValueStyle" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+            <Setter Property="Margin" Value="0,2"/>
+        </Style>
+    </UserControl.Resources>
+
+    <Grid Background="Transparent">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <!-- Нет доступа к сети предприятия -->
+        <StackPanel x:Name="StatusPanel" Grid.Row="0" Grid.RowSpan="2"
+                    VerticalAlignment="Top" Margin="0,16,0,0" Visibility="Collapsed">
+            <TextBlock Text="🔌" FontSize="48" HorizontalAlignment="Center" Margin="0,0,0,15"/>
+            <TextBlock Text="❌ Проверьте подключение к корпоративной сети" FontSize="18" FontWeight="SemiBold"
+                       HorizontalAlignment="Center" Foreground="{StaticResource ErrorBrush}"/>
+            <TextBlock x:Name="StatusHint" Margin="0,10,0,10" FontSize="13"
+                       Foreground="{StaticResource MutedBrush}" HorizontalAlignment="Center"
+                       TextWrapping="Wrap" TextAlignment="Center"/>
+        </StackPanel>
+
+        <!-- Шапка: заголовок, период, свод по уровням, кнопки -->
+        <Grid x:Name="HeadPanel" Grid.Row="0" Margin="12,12,12,8">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+
+            <StackPanel Grid.ColumnSpan="2" HorizontalAlignment="Center" Margin="0,0,0,8">
+                <TextBlock FontSize="16" FontWeight="SemiBold" HorizontalAlignment="Center"
+                           Foreground="{StaticResource AccentBrush}"
+                           Text="Чек-листы моделей, изменённых проектировщиками за 7 дней"/>
+                <TextBlock Text="{Binding StatusText}" FontSize="12" HorizontalAlignment="Center"
+                           Foreground="{StaticResource MutedBrush}" Margin="0,2,0,0"/>
+            </StackPanel>
+
+            <ItemsControl Grid.Row="1" ItemsSource="{Binding Counters}" VerticalAlignment="Center">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <StackPanel Orientation="Horizontal" Margin="0,1">
+                            <TextBlock Text="{Binding Title}" Width="110" FontWeight="SemiBold" Foreground="White"/>
+                            <TextBlock Text="{Binding Text}" Foreground="{StaticResource MutedBrush}"/>
+                        </StackPanel>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+
+            <StackPanel Grid.Row="1" Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                <Button Content="Обновить" Command="{Binding RefreshCommand}"
+                        Style="{StaticResource ActionButtonStyle}" Padding="14,6" Margin="0,0,8,0"/>
+                <Button Content="Выгрузить в Excel" Command="{Binding ExportCommand}"
+                        Style="{StaticResource ActionButtonStyle}" Padding="14,6"/>
+            </StackPanel>
+
+            <TextBlock Grid.Row="2" Grid.ColumnSpan="2" Text="{Binding WarningsText}" TextWrapping="Wrap"
+                       Foreground="#C9A227" Margin="0,6,0,0">
+                <TextBlock.Style>
+                    <Style TargetType="TextBlock">
+                        <Style.Triggers>
+                            <Trigger Property="Text" Value="">
+                                <Setter Property="Visibility" Value="Collapsed"/>
+                            </Trigger>
+                        </Style.Triggers>
+                    </Style>
+                </TextBlock.Style>
+            </TextBlock>
+        </Grid>
+
+        <!-- Таблица моделей: клик по строке раскрывает названия проверок -->
+        <Grid x:Name="TableContainer" Grid.Row="1" Margin="10,0,10,10">
+            <DataGrid ItemsSource="{Binding Rows}"
+                      Style="{StaticResource DarkDataGridStyle}"
+                      AutoGenerateColumns="False"
+                      IsReadOnly="True"
+                      SelectionMode="Single"
+                      RowDetailsVisibilityMode="VisibleWhenSelected"
+                      VirtualizingPanel.ScrollUnit="Pixel">
+                <DataGrid.Columns>
+                    <DataGridTextColumn Header="Модель" Binding="{Binding ModelName}" Width="2*"/>
+                    <DataGridTextColumn Header="Изменена" Binding="{Binding LastChangedText}" Width="120"
+                                        SortMemberPath="LastChanged"/>
+                    <DataGridTextColumn Header="Пользователь" Binding="{Binding LastUser}" Width="130"/>
+                    <DataGridTemplateColumn Header="Автопроверки" Width="*" SortMemberPath="Auto.Level">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <ContentPresenter Content="{Binding Auto}" ContentTemplate="{StaticResource LevelBadge}"/>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+                    <DataGridTemplateColumn Header="BIM-проверки" Width="*" SortMemberPath="Bim.Level">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <ContentPresenter Content="{Binding Bim}" ContentTemplate="{StaticResource LevelBadge}"/>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+                    <DataGridTemplateColumn Header="NWC" Width="*" SortMemberPath="Nwc.Level">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <ContentPresenter Content="{Binding Nwc}" ContentTemplate="{StaticResource LevelBadge}"/>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+                </DataGrid.Columns>
+
+                <DataGrid.RowDetailsTemplate>
+                    <DataTemplate>
+                        <Grid Margin="12,6,12,10">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="170"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+
+                            <TextBlock Grid.Row="0" Text="Auto — не пройдены:" Style="{StaticResource DetailLabelStyle}"/>
+                            <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding Auto.FailedText}" Style="{StaticResource DetailValueStyle}"/>
+                            <TextBlock Grid.Row="1" Text="Auto — устарели:" Style="{StaticResource DetailLabelStyle}"/>
+                            <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding Auto.StaleText}" Style="{StaticResource DetailValueStyle}"/>
+                            <TextBlock Grid.Row="2" Text="BIM — не пройдены:" Style="{StaticResource DetailLabelStyle}"/>
+                            <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding Bim.FailedText}" Style="{StaticResource DetailValueStyle}"/>
+                            <TextBlock Grid.Row="3" Text="BIM — устарели:" Style="{StaticResource DetailLabelStyle}"/>
+                            <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding Bim.StaleText}" Style="{StaticResource DetailValueStyle}"/>
+                            <TextBlock Grid.Row="4" Text="NWC:" Style="{StaticResource DetailLabelStyle}"/>
+                            <TextBlock Grid.Row="4" Grid.Column="1" Style="{StaticResource DetailValueStyle}">
+                                <Run Text="{Binding Nwc.NwcPath, Mode=OneWay, TargetNullValue='—'}"/>
+                                <Run Text=" · файл от "/>
+                                <Run Text="{Binding Nwc.DateText, Mode=OneWay}"/>
+                            </TextBlock>
+                        </Grid>
+                    </DataTemplate>
+                </DataGrid.RowDetailsTemplate>
+            </DataGrid>
+
+            <!-- Индикатор сбора -->
+            <Border Background="#AA14201A" CornerRadius="8">
+                <Border.Style>
+                    <Style TargetType="Border">
+                        <Setter Property="Visibility" Value="Collapsed"/>
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding IsBusy}" Value="True">
+                                <Setter Property="Visibility" Value="Visible"/>
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Border.Style>
+                <TextBlock Text="Сбор данных по моделям…" FontSize="16"
+                           Foreground="{StaticResource AccentBrush}"
+                           HorizontalAlignment="Center" VerticalAlignment="Center"/>
+            </Border>
+        </Grid>
+    </Grid>
+</UserControl>

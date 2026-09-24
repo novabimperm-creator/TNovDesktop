@@ -1,90 +1,111 @@
 ﻿<UserControl x:Class="TNovDesktop.ProjectControl"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
-             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
-             mc:Ignorable="d" 
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             mc:Ignorable="d"
              d:DesignHeight="450" d:DesignWidth="800">
-    <Grid Background="WhiteSmoke">
+    <Grid Background="Transparent">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
 
-        <!-- Верхняя панель: статус подключения -->
-        <StackPanel Grid.Row="0" VerticalAlignment="Top" Margin="0,20,0,0" Name="StatusPanel">
+        <StackPanel Grid.Row="0" VerticalAlignment="Top" Margin="0,16,0,0" Name="StatusPanel">
             <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
                 <TextBlock Text="🔌" FontSize="48" HorizontalAlignment="Center" Margin="0,0,0,15"/>
                 <TextBlock x:Name="StatusText" FontSize="18" FontWeight="SemiBold"
-                           HorizontalAlignment="Center" Text="Проверка подключения…" Foreground="Gray"/>
+                           HorizontalAlignment="Center" Text="Проверка подключения…"
+                           Foreground="{StaticResource MutedBrush}"/>
                 <TextBlock x:Name="HintText" Margin="0,10,0,10" FontSize="13"
-                           Foreground="DarkGray" HorizontalAlignment="Center"
+                           Foreground="{StaticResource MutedBrush}" HorizontalAlignment="Center"
                            TextWrapping="Wrap" TextAlignment="Center"/>
-                
-                
             </StackPanel>
-        </StackPanel>
-        <!-- Верхняя панель: имя пользователя -->
-        <StackPanel Grid.Row="0" VerticalAlignment="Top" Margin="0,20,0,0" Name="HeadPanel">
-            <!-- Имя пользователя и роль -->
-            <StackPanel Orientation="Horizontal" Margin="0,5,0,5" VerticalAlignment="Center">
-                <TextBlock x:Name="UserNamePrefixTextBlock" FontSize="18"
-               FontWeight="SemiBold" Foreground="Gray"/>
-                <TextBlock x:Name="UserNameTextBlock" Margin="5,0,0,0"
-               FontSize="18" FontWeight="Bold" Foreground="Black"/>
-                <TextBlock x:Name="UserRolePrefixTextBlock" Margin="5,0,0,0"
-               FontSize="18" FontWeight="SemiBold" Foreground="Gray"/>
-                <TextBlock x:Name="UserRoleTextBlock" Margin="5,0,0,0"
-               FontSize="18" FontWeight="Bold" Foreground="Black"/>
-            </StackPanel>
-            <TextBlock FontSize="18" FontWeight="SemiBold"
-           HorizontalAlignment="Center" Text="Журнал выдачи заданий" />
         </StackPanel>
 
-        <!-- Нижняя часть: фильтры + таблица (занимает всё оставшееся место) -->
+        <StackPanel Grid.Row="0" VerticalAlignment="Top" Margin="12,12,12,0" Name="HeadPanel">
+            <StackPanel Orientation="Horizontal" Margin="0,5,0,5" VerticalAlignment="Center">
+                <TextBlock x:Name="UserNamePrefixTextBlock" FontSize="16"
+                           FontWeight="SemiBold" Foreground="{StaticResource MutedBrush}"/>
+                <TextBlock x:Name="UserNameTextBlock" Margin="5,0,0,0"
+                           FontSize="16" FontWeight="Bold" Foreground="White"/>
+                <TextBlock x:Name="UserRolePrefixTextBlock" Margin="12,0,0,0"
+                           FontSize="16" FontWeight="SemiBold" Foreground="{StaticResource MutedBrush}"/>
+                <TextBlock x:Name="UserRoleTextBlock" Margin="5,0,0,0"
+                           FontSize="16" FontWeight="Bold" Foreground="White"/>
+            </StackPanel>
+            <TextBlock FontSize="16" FontWeight="SemiBold"
+                       HorizontalAlignment="Center"
+                       Foreground="{StaticResource AccentBrush}"
+                       Text="Журнал выдачи заданий"/>
+        </StackPanel>
+
         <Grid x:Name="TableContainer" Grid.Row="1" Visibility="Collapsed" Margin="10">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="*"/>
             </Grid.RowDefinitions>
 
-            <!-- Фильтры проекта и модели -->
-            <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,5">
-                <TextBlock Text="Проект:" VerticalAlignment="Center" Margin="0,0,5,0"/>
-                <ComboBox x:Name="ProjectComboBox" Width="150"
+            <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,8">
+                <TextBlock Text="Проект:" VerticalAlignment="Center" Margin="0,0,5,0"
+                           Foreground="{StaticResource MutedBrush}"/>
+                <ComboBox x:Name="ProjectComboBox" Width="180"
+                          Style="{StaticResource DarkComboBoxStyle}"
                           IsEditable="True" IsTextSearchEnabled="True"/>
-                <TextBlock Text="Модель:" VerticalAlignment="Center" Margin="10,0,5,0"/>
-                <ComboBox x:Name="ModelComboBox" Width="150"
+                <TextBlock Text="Модель:" VerticalAlignment="Center" Margin="10,0,5,0"
+                           Foreground="{StaticResource MutedBrush}"/>
+                <ComboBox x:Name="ModelComboBox" Width="180"
+                          Style="{StaticResource DarkComboBoxStyle}"
                           IsEditable="True" IsTextSearchEnabled="True"/>
                 <Button Content="Очистить фильтры" VerticalAlignment="Center"
-            Margin="10,0,0,0" Padding="8,3"
-            Background="#E0E0E0" BorderBrush="#CCCCCC" BorderThickness="1"
-            Foreground="#333" FontSize="12" FontWeight="SemiBold"
-            Cursor="Hand" Click="ClearFiltersButton_Click"/>
+                        Margin="10,0,0,0"
+                        Style="{StaticResource ActionButtonStyle}"
+                        Padding="10,6"
+                        MinHeight="32"
+                        Click="ClearFiltersButton_Click"/>
             </StackPanel>
 
-            <!-- Таблица с автоматической прокруткой -->
-            <DataGrid Grid.Row="1" x:Name="HoleGrid" AutoGenerateColumns="False" IsReadOnly="True">
+            <DataGrid Grid.Row="1" x:Name="HoleGrid"
+                      Style="{StaticResource DarkDataGridStyle}"
+                      AutoGenerateColumns="False" IsReadOnly="True">
                 <DataGrid.Resources>
-                    <!-- Стиль строки с ToolTip, привязанным к свойству MEPComments -->
                     <Style TargetType="{x:Type DataGridRow}">
                         <Setter Property="ToolTip" Value="{Binding MEPComments}" />
                     </Style>
                 </DataGrid.Resources>
                 <DataGrid.Columns>
-                    <DataGridTemplateColumn Header="Имя группы">
+                    <DataGridTemplateColumn Header="Файл">
                         <DataGridTemplateColumn.HeaderTemplate>
                             <DataTemplate>
                                 <StackPanel>
-                                    <TextBlock Text="Имя группы" FontWeight="Bold"/>
-                                    <TextBox x:Name="FilterHoleGroup" Width="120"
+                                    <TextBlock Text="Файл" FontWeight="Bold" Foreground="{StaticResource AccentBrush}"/>
+                                    <TextBox x:Name="FilterFileName" Width="160"
+                                             Style="{StaticResource DarkTextBoxStyle}"
                                              TextChanged="Filter_TextChanged"/>
                                 </StackPanel>
                             </DataTemplate>
                         </DataGridTemplateColumn.HeaderTemplate>
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate>
-                                <TextBlock Text="{Binding HoleGroupName}" VerticalAlignment="Center"/>
+                                <TextBlock Text="{Binding ModelName}" VerticalAlignment="Center" Foreground="White"/>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+
+                    <DataGridTemplateColumn Header="Имя группы">
+                        <DataGridTemplateColumn.HeaderTemplate>
+                            <DataTemplate>
+                                <StackPanel>
+                                    <TextBlock Text="Имя группы" FontWeight="Bold" Foreground="{StaticResource AccentBrush}"/>
+                                    <TextBox x:Name="FilterHoleGroup" Width="120"
+                                             Style="{StaticResource DarkTextBoxStyle}"
+                                             TextChanged="Filter_TextChanged"/>
+                                </StackPanel>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.HeaderTemplate>
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding HoleGroupName}" VerticalAlignment="Center" Foreground="White"/>
                             </DataTemplate>
                         </DataGridTemplateColumn.CellTemplate>
                     </DataGridTemplateColumn>
@@ -93,16 +114,15 @@
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate>
                                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                    <TextBlock Text="{Binding TaskVersion}" VerticalAlignment="Center" Margin="5,0,5,0"/>
-                                    <Button Content="..." 
-                        ToolTip="История версий"
-                        Width="24" Height="20"
-                        FontSize="12" 
-                        Padding="0"
-                        Background="Transparent" BorderThickness="0"
-                        Cursor="Hand"
-                        Click="VersionHistoryButton_Click"
-                        Tag="{Binding}"/>
+                                    <TextBlock Text="{Binding TaskVersion}" VerticalAlignment="Center" Margin="5,0,5,0" Foreground="White"/>
+                                    <Button Content="..."
+                                            ToolTip="История версий"
+                                            Style="{StaticResource CloseButtonStyleMini}"
+                                            Width="24"
+                                            Height="22"
+                                            FontSize="12"
+                                            Click="VersionHistoryButton_Click"
+                                            Tag="{Binding}"/>
                                 </StackPanel>
                             </DataTemplate>
                         </DataGridTemplateColumn.CellTemplate>
@@ -113,15 +133,16 @@
                         <DataGridTemplateColumn.HeaderTemplate>
                             <DataTemplate>
                                 <StackPanel>
-                                    <TextBlock Text="Выдал" FontWeight="Bold"/>
+                                    <TextBlock Text="Выдал" FontWeight="Bold" Foreground="{StaticResource AccentBrush}"/>
                                     <TextBox x:Name="FilterInitiator" Width="100"
+                                             Style="{StaticResource DarkTextBoxStyle}"
                                              TextChanged="Filter_TextChanged"/>
                                 </StackPanel>
                             </DataTemplate>
                         </DataGridTemplateColumn.HeaderTemplate>
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate>
-                                <TextBlock Text="{Binding Initiator}" VerticalAlignment="Center"/>
+                                <TextBlock Text="{Binding Initiator}" VerticalAlignment="Center" Foreground="White"/>
                             </DataTemplate>
                         </DataGridTemplateColumn.CellTemplate>
                     </DataGridTemplateColumn>
@@ -132,15 +153,16 @@
                         <DataGridTemplateColumn.HeaderTemplate>
                             <DataTemplate>
                                 <StackPanel>
-                                    <TextBlock Text="Статус КР" FontWeight="Bold"/>
+                                    <TextBlock Text="Статус КР" FontWeight="Bold" Foreground="{StaticResource AccentBrush}"/>
                                     <TextBox x:Name="FilterSTStatus" Width="100"
+                                             Style="{StaticResource DarkTextBoxStyle}"
                                              TextChanged="Filter_TextChanged"/>
                                 </StackPanel>
                             </DataTemplate>
                         </DataGridTemplateColumn.HeaderTemplate>
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate>
-                                <TextBlock Text="{Binding STStatus}" VerticalAlignment="Center"/>
+                                <TextBlock Text="{Binding STStatus}" VerticalAlignment="Center" Foreground="White"/>
                             </DataTemplate>
                         </DataGridTemplateColumn.CellTemplate>
                     </DataGridTemplateColumn>
