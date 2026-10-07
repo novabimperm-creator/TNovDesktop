@@ -9,6 +9,10 @@
     <SolidColorBrush x:Key="TreeToggleBorderBrush" Color="#8FB3A2"/>
     <SolidColorBrush x:Key="DarkBrush" Color="#14201A"/>
     <SolidColorBrush x:Key="ErrorBrush" Color="#E57373"/>
+    <!-- Журнал заданий: элементы, изменённые в последней версии -->
+    <SolidColorBrush x:Key="ElementNewBrush" Color="#24583A"/>
+    <SolidColorBrush x:Key="ElementChangedBrush" Color="#5C4A1A"/>
+    <SolidColorBrush x:Key="ElementRemovedBrush" Color="#3A3F3C"/>
 
     <ControlTemplate x:Key="RoundedButtonTemplate" TargetType="{x:Type ButtonBase}">
         <Border x:Name="border"

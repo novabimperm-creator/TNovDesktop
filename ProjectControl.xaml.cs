@@ -228,7 +228,7 @@ namespace TNovDesktop
             for (int i = 0; i < VisualTreeHelper.GetChildrenCount(parent); i++)
             {
                 var child = VisualTreeHelper.GetChild(parent, i);
-                if (child is T element && element.Name == name)
+                if (child is T element && (name == null || element.Name == name))
                     return element;
                 var result = FindVisualChild<T>(child, name);
                 if (result != null)
@@ -263,6 +263,7 @@ namespace TNovDesktop
                     foreach (var item in existingItems)
                     {
                         item.ModelName = fileNameWithoutExtension;
+                        item.PrepareElements();
                         foreach (string p in projects)
                         {
                             if (fileNameWithoutExtension.Contains(p))
@@ -292,6 +293,27 @@ namespace TNovDesktop
             var jsonFiles = Directory.GetFiles(folderPath, "*.json", searchOption).ToList();
             return jsonFiles;
         }
+        /// <summary>
+        /// Вложенная таблица элементов не должна «съедать» колесо: когда ей прокручивать
+        /// некуда, прокрутка уходит внешней таблице журнала.
+        /// </summary>
+        private void NestedGrid_PreviewMouseWheel(object sender, System.Windows.Input.MouseWheelEventArgs e)
+        {
+            if (sender is not DependencyObject nested) return;
+            var scroll = FindVisualChild<ScrollViewer>(nested, null);
+            bool canScroll = scroll != null &&
+                (e.Delta > 0 ? scroll.VerticalOffset > 0 : scroll.VerticalOffset < scroll.ScrollableHeight);
+            if (canScroll) return;
+
+            if (VisualTreeHelper.GetParent(nested) is not UIElement parent) return;
+            e.Handled = true;
+            parent.RaiseEvent(new System.Windows.Input.MouseWheelEventArgs(e.MouseDevice, e.Timestamp, e.Delta)
+            {
+                RoutedEvent = UIElement.MouseWheelEvent,
+                Source = sender
+            });
+        }
+
         private void VersionHistoryButton_Click(object sender, RoutedEventArgs e)
         {
             if (sender is Button button && button.Tag is HoleGroupBaseItem item)

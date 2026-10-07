@@ -75,6 +75,11 @@
     <Compile Include="..\TNovUtils\Checklist\Report\ChecklistDataSource.cs" Link="Checklist\ChecklistDataSource.cs" />
   </ItemGroup>
 
+  <!-- Журнал заданий: модель элемента задания с историей общая с плагином (TNovTasks пишет JSON). -->
+  <ItemGroup>
+    <Compile Include="..\TNovCommon\Journal\TaskElementRecord.cs" Link="Journal\TaskElementRecord.cs" />
+  </ItemGroup>
+
   <!-- Клиент TNovApi (netstandard2.0, репозиторий ..\TNovApi): JSON Чек-листа при "ChecklistStorage": "api". -->
   <ItemGroup>
     <ProjectReference Include="..\TNovApi\src\TNovApi.Client\TNovApi.Client.csproj" />
