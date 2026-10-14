@@ -132,7 +132,7 @@ namespace TNovDesktop
             }
         }
 
-        private static JObject? ReadConfig()
+        internal static JObject? ReadConfig()
         {
             try
             {

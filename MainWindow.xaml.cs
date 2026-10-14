@@ -45,6 +45,7 @@ namespace TNovDesktop
         private bool _muteNotificationsUntilRestart;
         private DispatcherTimer? _notificationMuteTimer;
         private string _trayUnreadDetail = "";
+        private readonly MailDigestScheduler _mailDigest = new();
 
         public MainWindow()
         {
@@ -96,6 +97,7 @@ namespace TNovDesktop
             SetupTabHoverSwitch();
             StartTaskMonitor();
             StartPeriodicUpdateCheck();
+            StartMailDigest();
         }
 
         private void OnMessengerToastRequested(string title, string body, string conversationId)
@@ -715,6 +717,53 @@ namespace TNovDesktop
         private void TProTabRefresh_Click(object sender, RoutedEventArgs e)
         {
             TProControl.WebView?.Reload();
+        }
+
+        #endregion
+
+        #region Сводка по почте
+
+        private void StartMailDigest()
+        {
+            _mailDigest.DigestReady += digest =>
+                ShowToastNotification(digest.Headline, digest.Summary, () =>
+                {
+                    ShowMainWindow();
+                    ShowMailDigestWindow(digest);
+                });
+            _mailDigest.Start();
+        }
+
+        private async void MailDigestMenu_Click(object sender, RoutedEventArgs e)
+        {
+            ShowMainWindow();
+            try
+            {
+                ShowMailDigestWindow(await _mailDigest.BuildNowAsync());
+            }
+            catch (MailAuthException)
+            {
+                MessageBox.Show(this, "Exchange не принял вход по учётной записи Windows.\n" +
+                    "Сводка работает на компьютере в домене — под той же учёткой, что и Почта.",
+                    "Сводка по почте", MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
+            catch (Exception ex)
+            {
+                Log.Write($"[MAIL] Сводка по запросу: {ex}");
+                MessageBox.Show(this, "Не удалось получить письма: " + ex.Message,
+                    "Сводка по почте", MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
+        }
+
+        private void ShowMailDigestWindow(MailDigest digest)
+        {
+            var window = new MailDigestWindow(digest, MailControl.OpenItem, () =>
+            {
+                SelectTabByTitle("Почта");
+                ShowMainWindow();
+            })
+            { Owner = this };
+            window.Show();
         }
 
         #endregion

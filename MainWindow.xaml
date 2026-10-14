@@ -232,6 +232,7 @@
             <tb:TaskbarIcon.ContextMenu>
                 <ContextMenu Opened="NotificationMuteMenu_Opened">
                     <MenuItem Header="Открыть" Click="ShowWindow_Click"/>
+                    <MenuItem Header="Сводка по почте" Click="MailDigestMenu_Click"/>
                     <Separator/>
                     <MenuItem x:Name="MuteNotificationsMenu" Header="Отключить уведомления">
                         <MenuItem x:Name="MuteFor30MinutesItem"
