@@ -7,6 +7,8 @@
         Height="900" MinHeight="700"
         Width="1200" MinWidth="600"
         WindowStartupLocation="CenterScreen"
+        MouseEnter="Window_MouseEnter"
+        MouseLeave="Window_MouseLeave"
         AllowsTransparency="True"
         Background="Transparent"
         WindowStyle="None">
@@ -31,7 +33,7 @@
             <Grid>
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="*"/>
+                    <RowDefinition x:Name="ContentRow" Height="*"/>
                 </Grid.RowDefinitions>
 
                 <Border x:Name="TitleBarBorder"
@@ -41,14 +43,15 @@
                         Margin="16,10,10,8">
                     <Grid>
                         <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition x:Name="TitleColumn" Width="*"/>
                             <ColumnDefinition Width="Auto"/>
                             <ColumnDefinition Width="35"/>
-                            <ColumnDefinition Width="35"/>
-                            <ColumnDefinition Width="35"/>
+                            <ColumnDefinition x:Name="MinimizeColumn" Width="35"/>
+                            <ColumnDefinition x:Name="MaximizeColumn" Width="35"/>
+                            <ColumnDefinition x:Name="CloseColumn" Width="35"/>
                         </Grid.ColumnDefinitions>
 
-                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                        <StackPanel x:Name="TitlePanel" Orientation="Horizontal" VerticalAlignment="Center">
                             <TextBlock Text="TNovDesktop"
                                        Foreground="{StaticResource AccentBrush}"
                                        FontSize="22"
@@ -59,6 +62,18 @@
                                        FontSize="14"
                                        VerticalAlignment="Center"
                                        Margin="10,4,0,0"/>
+                            <Border x:Name="StripBadge"
+                                    Style="{StaticResource TabUnreadBadgeStyle}"
+                                    Margin="10,2,12,0"
+                                    Visibility="Collapsed">
+                                <TextBlock x:Name="StripBadgeText"
+                                           Text="0"
+                                           Foreground="White"
+                                           FontSize="11"
+                                           FontWeight="Bold"
+                                           HorizontalAlignment="Center"
+                                           VerticalAlignment="Center"/>
+                            </Border>
                         </StackPanel>
 
                         <Button x:Name="MuteNotificationsButton"
@@ -91,18 +106,28 @@
                                 </ContextMenu>
                             </Button.ContextMenu>
                         </Button>
-                        <Button Content="–"
+                        <Button x:Name="CollapseButton"
+                                Content="^"
                                 Grid.Column="2"
+                                Style="{StaticResource CloseButtonStyleMini}"
+                                ToolTip="Свернуть в полоску"
+                                Click="CollapseButton_Click"
+                                WindowChrome.IsHitTestVisibleInChrome="True"/>
+                        <Button x:Name="MinimizeButton"
+                                Content="–"
+                                Grid.Column="3"
                                 Style="{StaticResource CloseButtonStyleMini}"
                                 Click="HideButton_Click"
                                 WindowChrome.IsHitTestVisibleInChrome="True"/>
-                        <Button Content="⛶"
-                                Grid.Column="3"
+                        <Button x:Name="MaximizeButton"
+                                Content="⛶"
+                                Grid.Column="4"
                                 Style="{StaticResource CloseButtonStyleMini}"
                                 Click="MaxButton_Click"
                                 WindowChrome.IsHitTestVisibleInChrome="True"/>
-                        <Button Content="✕"
-                                Grid.Column="4"
+                        <Button x:Name="CloseButton"
+                                Content="✕"
+                                Grid.Column="5"
                                 Style="{StaticResource CloseButtonStyleMini}"
                                 Click="CloseButton_Click"
                                 WindowChrome.IsHitTestVisibleInChrome="True"/>

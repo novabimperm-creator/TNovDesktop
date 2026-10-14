@@ -45,6 +45,14 @@ namespace TNovDesktop
         private bool _muteNotificationsUntilRestart;
         private DispatcherTimer? _notificationMuteTimer;
         private string _trayUnreadDetail = "";
+        private const double CollapsedOpacity = 0.55;
+        private bool _isCollapsed;
+        private int _unreadTotal;
+        private double _restoreHeight;
+        private double _restoreWidth;
+        private double _restoreMinHeight;
+        private double _restoreMinWidth;
+        private ResizeMode _restoreResizeMode;
         private readonly MailDigestScheduler _mailDigest = new();
 
         public MainWindow()
@@ -122,6 +130,11 @@ namespace TNovDesktop
                 : (show ? $"Непрочитанные: {total}" : "");
 
             MessengerTabBadge.ToolTip = string.IsNullOrEmpty(detail) ? null : detail;
+
+            _unreadTotal = total;
+            StripBadgeText.Text = MessengerTabBadgeText.Text;
+            StripBadge.ToolTip = MessengerTabBadge.ToolTip;
+            StripBadge.Visibility = _isCollapsed && show ? Visibility.Visible : Visibility.Collapsed;
             _trayUnreadDetail = detail;
             RefreshTrayToolTip();
 
@@ -563,6 +576,8 @@ namespace TNovDesktop
         {
             Show();
             WindowState = WindowState.Normal;
+            if (_isCollapsed)
+                ExpandFromStrip();
             Activate();
 
             if (!string.IsNullOrEmpty(pendingConversationId))
@@ -601,6 +616,107 @@ namespace TNovDesktop
         private void MaxButton_Click(object sender, RoutedEventArgs e)
         {
             ToggleWorkAreaMaximize();
+        }
+
+        private void CollapseButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (_isCollapsed)
+                ExpandFromStrip();
+            else
+                CollapseToStrip();
+        }
+
+        private void CollapseToStrip()
+        {
+            if (_isWorkAreaMaximized)
+                RestoreFromWorkArea();
+
+            _restoreHeight = ActualHeight;
+            _restoreWidth = ActualWidth;
+            _restoreMinHeight = MinHeight;
+            _restoreMinWidth = MinWidth;
+            _restoreResizeMode = ResizeMode;
+
+            MainTabControl.Visibility = Visibility.Collapsed;
+            ContentRow.Height = new GridLength(0);
+            VersionTextBlock.Visibility = Visibility.Collapsed;
+            MinimizeButton.Visibility = Visibility.Collapsed;
+            MaximizeButton.Visibility = Visibility.Collapsed;
+            CloseButton.Visibility = Visibility.Collapsed;
+            TitleColumn.Width = GridLength.Auto;
+            TitlePanel.Margin = new Thickness(0, 0, 10, 0);
+            MinimizeColumn.Width = MaximizeColumn.Width = CloseColumn.Width = new GridLength(0);
+            CollapseButton.Content = "v";
+            CollapseButton.ToolTip = "Развернуть";
+
+            MinHeight = 0;
+            MinWidth = 0;
+            UpdateLayout();
+            SizeToContent = SizeToContent.WidthAndHeight;
+            ResizeMode = ResizeMode.NoResize;
+            Opacity = IsMouseOver ? 1 : CollapsedOpacity;
+
+            var chrome = WindowChrome.GetWindowChrome(this);
+            if (chrome != null)
+            {
+                chrome.CaptionHeight = 0;
+                chrome.ResizeBorderThickness = new Thickness(0);
+            }
+
+            Topmost = true;
+            _isCollapsed = true;
+            StripBadge.Visibility = _unreadTotal > 0 ? Visibility.Visible : Visibility.Collapsed;
+        }
+
+        private void ExpandFromStrip()
+        {
+            SizeToContent = SizeToContent.Manual;
+            ContentRow.Height = new GridLength(1, GridUnitType.Star);
+            MainTabControl.Visibility = Visibility.Visible;
+            VersionTextBlock.Visibility = Visibility.Visible;
+            MinimizeButton.Visibility = Visibility.Visible;
+            MaximizeButton.Visibility = Visibility.Visible;
+            CloseButton.Visibility = Visibility.Visible;
+            TitleColumn.Width = new GridLength(1, GridUnitType.Star);
+            TitlePanel.Margin = new Thickness(0);
+            MinimizeColumn.Width = MaximizeColumn.Width = CloseColumn.Width = new GridLength(35);
+            CollapseButton.Content = "^";
+            CollapseButton.ToolTip = "Свернуть в полоску";
+            StripBadge.Visibility = Visibility.Collapsed;
+
+            MinHeight = _restoreMinHeight;
+            MinWidth = _restoreMinWidth;
+            Width = _restoreWidth;
+            Height = _restoreHeight;
+            ResizeMode = _restoreResizeMode;
+            Opacity = 1;
+
+            var chrome = WindowChrome.GetWindowChrome(this);
+            if (chrome != null)
+            {
+                chrome.CaptionHeight = 48;
+                chrome.ResizeBorderThickness = new Thickness(5);
+            }
+
+            Topmost = false;
+            _isCollapsed = false;
+
+            // Окно растёт вправо/вниз от полоски — не даём ему уйти за край экрана.
+            Rect work = WindowWorkArea.Get(this);
+            Left = Math.Max(work.Left, Math.Min(Left, work.Right - Width));
+            Top = Math.Max(work.Top, Math.Min(Top, work.Bottom - Height));
+        }
+
+        private void Window_MouseEnter(object sender, System.Windows.Input.MouseEventArgs e)
+        {
+            if (_isCollapsed)
+                Opacity = 1;
+        }
+
+        private void Window_MouseLeave(object sender, System.Windows.Input.MouseEventArgs e)
+        {
+            if (_isCollapsed)
+                Opacity = CollapsedOpacity;
         }
 
         private void MainWindow_StateChanged(object sender, EventArgs e)
