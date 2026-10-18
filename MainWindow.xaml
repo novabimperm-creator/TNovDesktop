@@ -162,6 +162,29 @@
                         </TabItem.Header>
                         <local:MessengerControl x:Name="MessengerControl"/>
                     </TabItem>
+                    <TabItem x:Name="BitrixTab">
+                        <TabItem.Header>
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="Битрикс" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                <Border x:Name="BitrixTabBadge"
+                                        Style="{StaticResource TabUnreadBadgeStyle}"
+                                        Visibility="Collapsed">
+                                    <TextBlock x:Name="BitrixTabBadgeText"
+                                               Text="0"
+                                               Foreground="White"
+                                               FontSize="11"
+                                               FontWeight="Bold"
+                                               HorizontalAlignment="Center"
+                                               VerticalAlignment="Center"/>
+                                </Border>
+                                <Button Content="⟳"
+                                        Style="{StaticResource RefreshButtonStyle}"
+                                        Click="BitrixTabRefresh_Click"
+                                        WindowChrome.IsHitTestVisibleInChrome="True"/>
+                            </StackPanel>
+                        </TabItem.Header>
+                        <local:BitrixControl x:Name="BitrixControl"/>
+                    </TabItem>
                     <TabItem>
                         <TabItem.Header>
                             <StackPanel Orientation="Horizontal">

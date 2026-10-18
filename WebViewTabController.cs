@@ -24,6 +24,10 @@ namespace TNovDesktop
         private readonly string _url;
         private readonly bool _allowMedia;
         private readonly bool _watchSidebarBadges;
+        private readonly bool _watchTitleCount;
+        private readonly bool _reportPageActivity;
+        private readonly bool _detectOwnUser;
+        private readonly Func<string, string> _chatUrl;
 
         private CoreWebView2Environment? _environment;
         private bool _isInitialized;
@@ -33,12 +37,18 @@ namespace TNovDesktop
         private string _currentUserId;
         private string _currentUserName;
         private readonly HashSet<string> _ownNames = new(StringComparer.OrdinalIgnoreCase);
+        private bool _pageActive = true;
+        private int _titleCount = -1;
+        private int _titleCheckVersion;
 
         /// <summary>Запрос показа тост-уведомления: (title, body, conversationId).</summary>
         public event Action<string, string, string> ShowToastRequested;
 
         /// <summary>Счётчики сайдбара TNovPRO: (модуль → число, суммарный total).</summary>
         public event Action<IReadOnlyDictionary<string, int>, int> SidebarBadgesChanged;
+
+        /// <summary>Число непрочитанных из заголовка страницы вида «(3) …».</summary>
+        public event Action<int> TitleCountChanged;
 
         public WebViewTabController(
             WebView2 webView,
@@ -47,7 +57,11 @@ namespace TNovDesktop
             TextBlock errorDetails,
             string url,
             bool allowMedia = false,
-            bool watchSidebarBadges = false)
+            bool watchSidebarBadges = false,
+            bool watchTitleCount = false,
+            bool reportPageActivity = false,
+            bool detectOwnUser = true,
+            Func<string, string> chatUrl = null)
         {
             _webView = webView;
             _loading = loading;
@@ -56,6 +70,10 @@ namespace TNovDesktop
             _url = url;
             _allowMedia = allowMedia;
             _watchSidebarBadges = watchSidebarBadges;
+            _watchTitleCount = watchTitleCount;
+            _reportPageActivity = reportPageActivity;
+            _detectOwnUser = detectOwnUser;
+            _chatUrl = chatUrl ?? (id => $"{_url}#/chat/{id}");
         }
 
         public WebView2 WebView => _webView;
@@ -66,13 +84,36 @@ namespace TNovDesktop
         {
             if (_webView.CoreWebView2 != null)
             {
-                _webView.CoreWebView2.Navigate($"{_url}#/chat/{chatId}");
+                _webView.CoreWebView2.Navigate(_chatUrl(chatId));
                 _pendingNavigationChatId = null;
             }
             else
             {
                 _pendingNavigationChatId = chatId;
             }
+        }
+
+        /// <summary>
+        /// Сообщает странице, смотрит ли на неё пользователь. Неактивной странице
+        /// отдаём document.hidden = true и hasFocus() = false — иначе мессенджеры
+        /// (Битрикс) не показывают уведомления о новых сообщениях.
+        /// </summary>
+        public void SetPageActive(bool active)
+        {
+            if (!_reportPageActivity || _pageActive == active) return;
+            _pageActive = active;
+            _ = ApplyPageActiveAsync();
+        }
+
+        private async Task ApplyPageActiveAsync()
+        {
+            if (_webView.CoreWebView2 == null) return;
+            try
+            {
+                await _webView.CoreWebView2.ExecuteScriptAsync(
+                    $"window.__tnovSetPageActive && window.__tnovSetPageActive({(_pageActive ? "true" : "false")});");
+            }
+            catch (Exception ex) { Debug.WriteLine($"[WPF] SetPageActive: {ex.Message}"); }
         }
 
         #region Жизненный цикл UserControl
@@ -111,7 +152,12 @@ namespace TNovDesktop
 
                 AttachCoreHandlers(_webView.CoreWebView2);
                 Subscribe();
+                if (!_detectOwnUser)
+                    await _webView.CoreWebView2.AddScriptToExecuteOnDocumentCreatedAsync("window.__tnovNoOwnUserScan = true;");
                 await _webView.CoreWebView2.AddScriptToExecuteOnDocumentCreatedAsync(EarlyInjectionScript);
+
+                if (_reportPageActivity)
+                    await _webView.CoreWebView2.AddScriptToExecuteOnDocumentCreatedAsync(PageActivityScript);
 
                 if (_watchSidebarBadges)
                     await _webView.CoreWebView2.AddScriptToExecuteOnDocumentCreatedAsync(SidebarBadgeScript);
@@ -155,6 +201,11 @@ namespace TNovDesktop
             core.NavigationCompleted += OnNavigationCompleted;
             core.WebMessageReceived -= OnWebMessageReceived;
             core.WebMessageReceived += OnWebMessageReceived;
+            if (_watchTitleCount)
+            {
+                core.DocumentTitleChanged -= OnDocumentTitleChanged;
+                core.DocumentTitleChanged += OnDocumentTitleChanged;
+            }
             _isSubscribed = true;
         }
 
@@ -493,11 +544,40 @@ namespace TNovDesktop
             if (e.IsSuccess && !string.IsNullOrEmpty(_pendingNavigationChatId))
                 NavigateToChat(_pendingNavigationChatId);
 
+            if (e.IsSuccess && _reportPageActivity && !_pageActive)
+                await ApplyPageActiveAsync();
+
             if (e.IsSuccess && _watchSidebarBadges)
             {
                 try { await _webView.ExecuteScriptAsync(SidebarBadgeScript); }
                 catch (Exception ex) { Debug.WriteLine($"[WPF] Badge script: {ex.Message}"); }
             }
+        }
+
+        // Мессенджеры мигают заголовком («(2) Чат» ↔ «Новое сообщение»), поэтому
+        // ноль подтверждаем повторной проверкой через пару секунд.
+        private async void OnDocumentTitleChanged(object sender, object e)
+        {
+            int count = ParseTitleCount(_webView.CoreWebView2?.DocumentTitle);
+            int version = ++_titleCheckVersion;
+            if (count == 0 && _titleCount > 0)
+            {
+                await Task.Delay(TimeSpan.FromSeconds(3));
+                if (version != _titleCheckVersion) return;
+                count = ParseTitleCount(_webView.CoreWebView2?.DocumentTitle);
+            }
+
+            if (count == _titleCount) return;
+            _titleCount = count;
+            Log.Write($"[BADGES] title={count} url={_url}");
+            TitleCountChanged?.Invoke(count);
+        }
+
+        private static int ParseTitleCount(string title)
+        {
+            if (string.IsNullOrEmpty(title)) return 0;
+            var m = System.Text.RegularExpressions.Regex.Match(title, @"^\s*\((\d+)\+?\)");
+            return m.Success && int.TryParse(m.Groups[1].Value, out int n) ? n : 0;
         }
 
         private void ShowError(string message)
@@ -770,6 +850,7 @@ namespace TNovDesktop
     }
 
     function findUser() {
+        if (window.__tnovNoOwnUserScan) return null;
         try {
             if (window.me) {
                 var u = pickUser(window.me, 0);
@@ -958,22 +1039,43 @@ namespace TNovDesktop
         window.WebSocket.CLOSED = OrigWS.CLOSED;
     } catch (e) {}
 
-    window.Notification = function(title, options) {
+    // Битрикс кладёт диалог в tag: «im-messenger-chat123», «im-message-12».
+    function chatIdFromTag(tag) {
+        if (!tag) return null;
+        var m = String(tag).match(/^im[-_](?:messenger|message|im)[-_](chat\d+|\d+)$/i);
+        return m ? m[1] : null;
+    }
+
+    function forwardNotification(title, options) {
         trySetMyUserInfo();
         var body = (options && options.body) ? options.body : '';
         var sender = extractSender(options && options.data);
+        if (!sender.chatId) sender.chatId = chatIdFromTag(options && options.tag);
         var own = isOwnNotification(title, body, sender);
-        if (window.chrome && window.chrome.webview) {
-            post({
-                type: 'webNotification',
-                title: title,
-                body: body,
-                senderId: sender.id,
-                senderName: sender.name,
-                conversationId: sender.chatId,
-                isOwn: own
-            });
+        post({
+            type: 'webNotification',
+            title: title,
+            body: body,
+            senderId: sender.id,
+            senderName: sender.name,
+            conversationId: sender.chatId,
+            isOwn: own
+        });
+        return body;
+    }
+
+    // Уведомления через service worker (registration.showNotification) — тоже в WPF.
+    try {
+        if (window.ServiceWorkerRegistration && ServiceWorkerRegistration.prototype.showNotification) {
+            ServiceWorkerRegistration.prototype.showNotification = function(title, options) {
+                forwardNotification(title, options);
+                return Promise.resolve();
+            };
         }
+    } catch (e) {}
+
+    window.Notification = function(title, options) {
+        var body = forwardNotification(title, options);
         var notif = {
             close: function() {},
             onclick: null,
@@ -1223,6 +1325,41 @@ namespace TNovDesktop
         document.addEventListener('DOMContentLoaded', start);
     else
         start();
+})();
+";
+
+        // Подмена видимости страницы: WPF вызывает __tnovSetPageActive(false),
+        // когда вкладка не выбрана, окно свёрнуто/скрыто или неактивно.
+        private const string PageActivityScript = @"
+(function() {
+    if (window.__tnovSetPageActive) return;
+    var active = true;
+    var proto = Document.prototype;
+    var hiddenDesc = Object.getOwnPropertyDescriptor(proto, 'hidden');
+    var stateDesc = Object.getOwnPropertyDescriptor(proto, 'visibilityState');
+    var origHasFocus = proto.hasFocus;
+
+    try {
+        Object.defineProperty(document, 'hidden', {
+            get: function() { return active ? hiddenDesc.get.call(document) : true; },
+            configurable: true
+        });
+        Object.defineProperty(document, 'visibilityState', {
+            get: function() { return active ? stateDesc.get.call(document) : 'hidden'; },
+            configurable: true
+        });
+        document.hasFocus = function() { return active && origHasFocus.call(document); };
+    } catch (e) {}
+
+    window.__tnovSetPageActive = function(value) {
+        value = !!value;
+        if (value === active) return;
+        active = value;
+        try {
+            document.dispatchEvent(new Event('visibilitychange'));
+            window.dispatchEvent(new Event(value ? 'focus' : 'blur'));
+        } catch (e) {}
+    };
 })();
 ";
 

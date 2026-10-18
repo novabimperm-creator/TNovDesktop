@@ -48,6 +48,9 @@ namespace TNovDesktop
         private const double CollapsedOpacity = 0.55;
         private bool _isCollapsed;
         private int _unreadTotal;
+        private int _tnovUnread;
+        private string _tnovUnreadDetail = "";
+        private int _bitrixUnread;
         private double _restoreHeight;
         private double _restoreWidth;
         private double _restoreMinHeight;
@@ -96,6 +99,15 @@ namespace TNovDesktop
             // Подписываемся на запросы показа уведомлений от контрола
             MessengerControl.ShowToastRequested += OnMessengerToastRequested;
             MessengerControl.SidebarBadgesChanged += OnMessengerSidebarBadgesChanged;
+            BitrixControl.ShowToastRequested += OnBitrixToastRequested;
+            BitrixControl.UnreadChanged += OnBitrixUnreadChanged;
+
+            // Битрикс шлёт уведомления, только если считает страницу невидимой.
+            Activated += (s, e) => UpdateBitrixPageActivity();
+            Deactivated += (s, e) => UpdateBitrixPageActivity();
+            IsVisibleChanged += (s, e) => UpdateBitrixPageActivity();
+            StateChanged += (s, e) => UpdateBitrixPageActivity();
+            MainTabControl.SelectionChanged += (s, e) => UpdateBitrixPageActivity();
         }
 
         private void MainWindow_Loaded(object sender, RoutedEventArgs e)
@@ -122,7 +134,7 @@ namespace TNovDesktop
         {
             bool show = total > 0;
             MessengerTabBadge.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
-            MessengerTabBadgeText.Text = total > 99 ? "99+" : total.ToString();
+            MessengerTabBadgeText.Text = FormatBadgeCount(total);
 
             var parts = items.Where(kv => kv.Value > 0).Select(kv => $"{kv.Key}: {kv.Value}").ToList();
             string detail = parts.Count > 0
@@ -131,9 +143,47 @@ namespace TNovDesktop
 
             MessengerTabBadge.ToolTip = string.IsNullOrEmpty(detail) ? null : detail;
 
+            _tnovUnread = total;
+            _tnovUnreadDetail = detail;
+            RefreshUnreadIndicators();
+        }
+
+        private void OnBitrixToastRequested(string title, string body, string conversationId)
+        {
+            string chatId = string.IsNullOrWhiteSpace(conversationId) ? null : conversationId;
+            ShowToastNotification(title, body, () =>
+            {
+                SelectTabByTitle("Битрикс");
+                ShowMainWindow();
+                if (chatId != null)
+                    BitrixControl.NavigateToChat(chatId);
+            });
+        }
+
+        private void OnBitrixUnreadChanged(int count)
+        {
+            _bitrixUnread = count;
+            BitrixTabBadge.Visibility = count > 0 ? Visibility.Visible : Visibility.Collapsed;
+            BitrixTabBadgeText.Text = FormatBadgeCount(count);
+            RefreshUnreadIndicators();
+        }
+
+        /// <summary>Общий счётчик (полоска, панель задач, трей) = TNovPro + Битрикс.</summary>
+        private void RefreshUnreadIndicators()
+        {
+            int total = _tnovUnread + _bitrixUnread;
+            bool show = total > 0;
+
+            var parts = new List<string>();
+            if (_tnovUnread > 0)
+                parts.Add(_bitrixUnread > 0 ? $"TNovPro: {_tnovUnreadDetail}" : _tnovUnreadDetail);
+            if (_bitrixUnread > 0)
+                parts.Add($"Битрикс: {_bitrixUnread}");
+            string detail = string.Join("; ", parts);
+
             _unreadTotal = total;
-            StripBadgeText.Text = MessengerTabBadgeText.Text;
-            StripBadge.ToolTip = MessengerTabBadge.ToolTip;
+            StripBadgeText.Text = FormatBadgeCount(total);
+            StripBadge.ToolTip = string.IsNullOrEmpty(detail) ? null : detail;
             StripBadge.Visibility = _isCollapsed && show ? Visibility.Visible : Visibility.Collapsed;
             _trayUnreadDetail = detail;
             RefreshTrayToolTip();
@@ -142,6 +192,18 @@ namespace TNovDesktop
                 AppTaskbarInfo.Overlay = show ? CreateBadgeOverlay(total) : null;
 
             UpdateTrayIconBadge(total);
+        }
+
+        private static string FormatBadgeCount(int count) => count > 99 ? "99+" : count.ToString();
+
+        private void UpdateBitrixPageActivity()
+        {
+            bool active = IsVisible
+                && WindowState != WindowState.Minimized
+                && IsActive
+                && !_isCollapsed
+                && BitrixTab.IsSelected;
+            BitrixControl.SetPageActive(active);
         }
 
         private ImageSource CreateBadgeOverlay(int count)
@@ -666,6 +728,7 @@ namespace TNovDesktop
             Topmost = true;
             _isCollapsed = true;
             StripBadge.Visibility = _unreadTotal > 0 ? Visibility.Visible : Visibility.Collapsed;
+            UpdateBitrixPageActivity();
         }
 
         private void ExpandFromStrip()
@@ -700,6 +763,7 @@ namespace TNovDesktop
 
             Topmost = false;
             _isCollapsed = false;
+            UpdateBitrixPageActivity();
 
             // Окно растёт вправо/вниз от полоски — не даём ему уйти за край экрана.
             Rect work = WindowWorkArea.Get(this);
@@ -806,6 +870,11 @@ namespace TNovDesktop
             // Если WebView2 недоступен напрямую, создайте в контроле публичный метод Refresh()
             // MessengerControl.Refresh();
         }
+        private void BitrixTabRefresh_Click(object sender, RoutedEventArgs e)
+        {
+            BitrixControl.Refresh();
+        }
+
         private void ProjectsTabRefresh_Click(object sender, RoutedEventArgs e)
         {
             ProjectControl.RefreshData();

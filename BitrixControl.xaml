@@ -1,0 +1,34 @@
+﻿<UserControl x:Class="TNovDesktop.BitrixControl"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:wv2="clr-namespace:Microsoft.Web.WebView2.Wpf;assembly=Microsoft.Web.WebView2.Wpf">
+    <Grid>
+        <wv2:WebView2 x:Name="WebView" />
+
+        <ProgressBar x:Name="LoadingProgress"
+                     IsIndeterminate="True"
+                     Height="3"
+                     VerticalAlignment="Top"
+                     Visibility="Collapsed" />
+
+        <Border x:Name="ErrorPanel"
+                Background="{StaticResource CardBrush}"
+                Visibility="Collapsed">
+            <StackPanel VerticalAlignment="Center"
+                        HorizontalAlignment="Center">
+                <TextBlock Text="😕 Не удалось загрузить Битрикс"
+                           FontSize="18"
+                           Foreground="White"
+                           Margin="0,0,0,10" />
+                <TextBlock x:Name="ErrorDetails"
+                           TextWrapping="Wrap"
+                           Foreground="{StaticResource MutedBrush}"
+                           Margin="0,0,0,20" />
+                <Button Content="Повторить"
+                        Style="{StaticResource RunButtonStyle}"
+                        Click="RetryButton_Click"
+                        Width="120" />
+            </StackPanel>
+        </Border>
+    </Grid>
+</UserControl>
