@@ -185,17 +185,28 @@
                         </TabItem.Header>
                         <local:BitrixControl x:Name="BitrixControl"/>
                     </TabItem>
-                    <TabItem>
+                    <TabItem x:Name="TelegramTab">
                         <TabItem.Header>
                             <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="Задания" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                <TextBlock Text="Telegram" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                <Border x:Name="TelegramTabBadge"
+                                        Style="{StaticResource TabUnreadBadgeStyle}"
+                                        Visibility="Collapsed">
+                                    <TextBlock x:Name="TelegramTabBadgeText"
+                                               Text="0"
+                                               Foreground="White"
+                                               FontSize="11"
+                                               FontWeight="Bold"
+                                               HorizontalAlignment="Center"
+                                               VerticalAlignment="Center"/>
+                                </Border>
                                 <Button Content="⟳"
                                         Style="{StaticResource RefreshButtonStyle}"
-                                        Click="ProjectsTabRefresh_Click"
+                                        Click="TelegramTabRefresh_Click"
                                         WindowChrome.IsHitTestVisibleInChrome="True"/>
                             </StackPanel>
                         </TabItem.Header>
-                        <local:ProjectControl x:Name="ProjectControl"/>
+                        <local:TelegramControl x:Name="TelegramControl"/>
                     </TabItem>
                     <TabItem>
                         <TabItem.Header>
@@ -208,18 +219,6 @@
                             </StackPanel>
                         </TabItem.Header>
                         <local:ChecklistsControl x:Name="ChecklistsControl"/>
-                    </TabItem>
-                    <TabItem>
-                        <TabItem.Header>
-                            <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="Vitro" VerticalAlignment="Center" Margin="0,0,6,0"/>
-                                <Button Content="⟳"
-                                        Style="{StaticResource RefreshButtonStyle}"
-                                        Click="Vitro22TabRefresh_Click"
-                                        WindowChrome.IsHitTestVisibleInChrome="True"/>
-                            </StackPanel>
-                        </TabItem.Header>
-                        <local:Vitro22Control x:Name="Vitro22Control"/>
                     </TabItem>
                     <TabItem>
                         <TabItem.Header>

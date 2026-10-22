@@ -1,4 +1,4 @@
-﻿<UserControl x:Class="TNovDesktop.Vitro22Control"
+<UserControl x:Class="TNovDesktop.TelegramControl"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:wv2="clr-namespace:Microsoft.Web.WebView2.Wpf;assembly=Microsoft.Web.WebView2.Wpf">
@@ -16,7 +16,7 @@
                 Visibility="Collapsed">
             <StackPanel VerticalAlignment="Center"
                         HorizontalAlignment="Center">
-                <TextBlock Text="😕 Не удалось загрузить задачи"
+                <TextBlock Text="😕 Не удалось загрузить Telegram"
                            FontSize="18"
                            Foreground="White"
                            Margin="0,0,0,10" />

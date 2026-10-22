@@ -28,6 +28,7 @@ namespace TNovDesktop
         private readonly bool _reportPageActivity;
         private readonly bool _detectOwnUser;
         private readonly Func<string, string> _chatUrl;
+        private readonly string _extraScript;
 
         private CoreWebView2Environment? _environment;
         private bool _isInitialized;
@@ -47,7 +48,7 @@ namespace TNovDesktop
         /// <summary>Счётчики сайдбара TNovPRO: (модуль → число, суммарный total).</summary>
         public event Action<IReadOnlyDictionary<string, int>, int> SidebarBadgesChanged;
 
-        /// <summary>Число непрочитанных из заголовка страницы вида «(3) …».</summary>
+        /// <summary>Число непрочитанных: из заголовка вида «(3) …» или из navigator.setAppBadge.</summary>
         public event Action<int> TitleCountChanged;
 
         public WebViewTabController(
@@ -61,8 +62,10 @@ namespace TNovDesktop
             bool watchTitleCount = false,
             bool reportPageActivity = false,
             bool detectOwnUser = true,
-            Func<string, string> chatUrl = null)
+            Func<string, string> chatUrl = null,
+            string extraScript = null)
         {
+            _extraScript = extraScript;
             _webView = webView;
             _loading = loading;
             _errorPanel = errorPanel;
@@ -161,6 +164,10 @@ namespace TNovDesktop
 
                 if (_watchSidebarBadges)
                     await _webView.CoreWebView2.AddScriptToExecuteOnDocumentCreatedAsync(SidebarBadgeScript);
+
+                // Перехватчики, специфичные для сервиса вкладки.
+                if (!string.IsNullOrEmpty(_extraScript))
+                    await _webView.CoreWebView2.AddScriptToExecuteOnDocumentCreatedAsync(_extraScript);
 
                 // Для вкладок со звонками включаем диагностику доступа к микрофону/камере.
                 if (_allowMedia)
@@ -639,6 +646,16 @@ namespace TNovDesktop
                 else if (type == "sidebarBadges")
                 {
                     HandleSidebarBadges(doc.RootElement);
+                }
+                else if (type == "appBadge")
+                {
+                    int count = doc.RootElement.TryGetProperty("count", out var c) && c.TryGetInt32(out int n) ? n : 0;
+                    if (count != _titleCount)
+                    {
+                        _titleCount = count;
+                        Log.Write($"[BADGES] appBadge={count} url={_url}");
+                        TitleCountChanged?.Invoke(count);
+                    }
                 }
                 else if (type == "webNotification")
                 {

@@ -30,8 +30,6 @@ namespace TNovDesktop
         public static string novaserver = "//fs-nova/Distr/0.For Admin/";
         private DispatcherTimer _tabHoverTimer;
         private TabItem _hoveredTabItem;
-        private DispatcherTimer _taskMonitorTimer;
-        private DateTime _lastTaskCheckTime;
         private DispatcherTimer _updateCheckTimer;
         private bool _isCheckingUpdate = false;
         private string _notifiedUpdateVersion = string.Empty;
@@ -51,6 +49,7 @@ namespace TNovDesktop
         private int _tnovUnread;
         private string _tnovUnreadDetail = "";
         private int _bitrixUnread;
+        private int _telegramUnread;
         private double _restoreHeight;
         private double _restoreWidth;
         private double _restoreMinHeight;
@@ -101,13 +100,15 @@ namespace TNovDesktop
             MessengerControl.SidebarBadgesChanged += OnMessengerSidebarBadgesChanged;
             BitrixControl.ShowToastRequested += OnBitrixToastRequested;
             BitrixControl.UnreadChanged += OnBitrixUnreadChanged;
+            TelegramControl.ShowToastRequested += OnTelegramToastRequested;
+            TelegramControl.UnreadChanged += OnTelegramUnreadChanged;
 
-            // Битрикс шлёт уведомления, только если считает страницу невидимой.
-            Activated += (s, e) => UpdateBitrixPageActivity();
-            Deactivated += (s, e) => UpdateBitrixPageActivity();
-            IsVisibleChanged += (s, e) => UpdateBitrixPageActivity();
-            StateChanged += (s, e) => UpdateBitrixPageActivity();
-            MainTabControl.SelectionChanged += (s, e) => UpdateBitrixPageActivity();
+            // Битрикс и Telegram шлют уведомления, только если считают страницу невидимой.
+            Activated += (s, e) => UpdateChatPageActivity();
+            Deactivated += (s, e) => UpdateChatPageActivity();
+            IsVisibleChanged += (s, e) => UpdateChatPageActivity();
+            StateChanged += (s, e) => UpdateChatPageActivity();
+            MainTabControl.SelectionChanged += (s, e) => UpdateChatPageActivity();
         }
 
         private void MainWindow_Loaded(object sender, RoutedEventArgs e)
@@ -115,7 +116,6 @@ namespace TNovDesktop
             SetCurrentProcessExplicitAppUserModelID("TNov.TNovDesktop");
             InitializeNotificationAppId();
             SetupTabHoverSwitch();
-            StartTaskMonitor();
             StartPeriodicUpdateCheck();
             StartMailDigest();
         }
@@ -168,17 +168,39 @@ namespace TNovDesktop
             RefreshUnreadIndicators();
         }
 
-        /// <summary>Общий счётчик (полоска, панель задач, трей) = TNovPro + Битрикс.</summary>
+        private void OnTelegramToastRequested(string title, string body, string conversationId)
+        {
+            string chatId = string.IsNullOrWhiteSpace(conversationId) ? null : conversationId;
+            ShowToastNotification(title, body, () =>
+            {
+                SelectTabByTitle("Telegram");
+                ShowMainWindow();
+                if (chatId != null)
+                    TelegramControl.NavigateToChat(chatId);
+            });
+        }
+
+        private void OnTelegramUnreadChanged(int count)
+        {
+            _telegramUnread = count;
+            TelegramTabBadge.Visibility = count > 0 ? Visibility.Visible : Visibility.Collapsed;
+            TelegramTabBadgeText.Text = FormatBadgeCount(count);
+            RefreshUnreadIndicators();
+        }
+
+        /// <summary>Общий счётчик (полоска, панель задач, трей) = TNovPro + Битрикс + Telegram.</summary>
         private void RefreshUnreadIndicators()
         {
-            int total = _tnovUnread + _bitrixUnread;
+            int total = _tnovUnread + _bitrixUnread + _telegramUnread;
             bool show = total > 0;
 
             var parts = new List<string>();
             if (_tnovUnread > 0)
-                parts.Add(_bitrixUnread > 0 ? $"TNovPro: {_tnovUnreadDetail}" : _tnovUnreadDetail);
+                parts.Add(_bitrixUnread > 0 || _telegramUnread > 0 ? $"TNovPro: {_tnovUnreadDetail}" : _tnovUnreadDetail);
             if (_bitrixUnread > 0)
                 parts.Add($"Битрикс: {_bitrixUnread}");
+            if (_telegramUnread > 0)
+                parts.Add($"Telegram: {_telegramUnread}");
             string detail = string.Join("; ", parts);
 
             _unreadTotal = total;
@@ -196,14 +218,14 @@ namespace TNovDesktop
 
         private static string FormatBadgeCount(int count) => count > 99 ? "99+" : count.ToString();
 
-        private void UpdateBitrixPageActivity()
+        private void UpdateChatPageActivity()
         {
-            bool active = IsVisible
+            bool windowActive = IsVisible
                 && WindowState != WindowState.Minimized
                 && IsActive
-                && !_isCollapsed
-                && BitrixTab.IsSelected;
-            BitrixControl.SetPageActive(active);
+                && !_isCollapsed;
+            BitrixControl.SetPageActive(windowActive && BitrixTab.IsSelected);
+            TelegramControl.SetPageActive(windowActive && TelegramTab.IsSelected);
         }
 
         private ImageSource CreateBadgeOverlay(int count)
@@ -568,21 +590,7 @@ namespace TNovDesktop
 
         private void OnToastActivated(ToastNotificationActivatedEventArgsCompat e)
         {
-            var args = ToastArguments.Parse(e.Argument);
-            if (args.TryGetValue("action", out string action) && action == "navigateToProjects")
-            {
-                Dispatcher.Invoke(() => NavigateToProjectsAndRefresh());
-            }
-            else
-            {
-                Dispatcher.Invoke(() => ShowMainWindow());
-            }
-        }
-
-        public void NavigateToProjectsAndRefresh()
-        {
-            SelectTabByTitle("Задания");
-            ProjectControl.RefreshData();
+            Dispatcher.Invoke(() => ShowMainWindow());
         }
 
         private void SelectTabByTitle(string title)
@@ -728,7 +736,7 @@ namespace TNovDesktop
             Topmost = true;
             _isCollapsed = true;
             StripBadge.Visibility = _unreadTotal > 0 ? Visibility.Visible : Visibility.Collapsed;
-            UpdateBitrixPageActivity();
+            UpdateChatPageActivity();
         }
 
         private void ExpandFromStrip()
@@ -763,7 +771,7 @@ namespace TNovDesktop
 
             Topmost = false;
             _isCollapsed = false;
-            UpdateBitrixPageActivity();
+            UpdateChatPageActivity();
 
             // Окно растёт вправо/вниз от полоски — не даём ему уйти за край экрана.
             Rect work = WindowWorkArea.Get(this);
@@ -874,18 +882,14 @@ namespace TNovDesktop
         {
             BitrixControl.Refresh();
         }
-
-        private void ProjectsTabRefresh_Click(object sender, RoutedEventArgs e)
+        private void TelegramTabRefresh_Click(object sender, RoutedEventArgs e)
         {
-            ProjectControl.RefreshData();
+            TelegramControl.Refresh();
         }
+
         private void ChecklistsTabRefresh_Click(object sender, RoutedEventArgs e)
         {
             ChecklistsControl.RefreshData();
-        }
-        private void Vitro22TabRefresh_Click(object sender, RoutedEventArgs e)
-        {
-            Vitro22Control.WebView?.Reload();
         }
         private void Vitro25TabRefresh_Click(object sender, RoutedEventArgs e)
         {
@@ -953,86 +957,6 @@ namespace TNovDesktop
 
         #endregion
 
-        #region Мониторинг новых заданий
-        private void StartTaskMonitor()
-        {
-            _lastTaskCheckTime = DateTime.Now; // начальная точка – сейчас
-            _taskMonitorTimer = new DispatcherTimer { Interval = TimeSpan.FromMinutes(1) };
-            _taskMonitorTimer.Tick += async (s, e) => await CheckForNewTasksAsync();
-            _taskMonitorTimer.Start();
-        }
-        private async Task CheckForNewTasksAsync()
-        {
-            string taskFolder = @"\\fs-nova\Distr\0.For Admin\_TNov\tasks\";
-            if (!Directory.Exists(taskFolder))
-                return;
-
-            DateTime checkEnd = DateTime.Now;
-            DateTime checkStart = checkEnd.AddMinutes(-1);
-
-            var newAssignments = new Dictionary<string, List<HoleGroupBaseItem>>();
-
-            try
-            {
-                var jsonFiles = Directory.GetFiles(taskFolder, "*.json", SearchOption.TopDirectoryOnly);
-
-                foreach (var file in jsonFiles)
-                {
-                    FileInfo fi = new FileInfo(file);
-                    // Обрабатываем только файлы, изменённые после последней проверки
-                    if (fi.LastWriteTime < _lastTaskCheckTime)
-                        continue;
-
-                    try
-                    {
-                        string json = File.ReadAllText(file);
-                        var items = JsonConvert.DeserializeObject<List<HoleGroupBaseItem>>(json)
-                                    ?? new List<HoleGroupBaseItem>();
-                        string modelName = Path.GetFileNameWithoutExtension(file);
-
-                        var recent = items.Where(item =>
-                        {
-                            if (string.IsNullOrEmpty(item.TaskDate)) return false;
-                            return DateTime.TryParse(item.TaskDate, out DateTime dt) && dt >= checkStart && dt <= checkEnd;
-                        }).ToList();
-
-                        if (recent.Any())
-                            newAssignments[modelName] = recent;
-                    }
-                    catch { /* игнорируем повреждённые файлы */ }
-                }
-            }
-            catch { /* ошибка доступа к папке */ }
-
-            _lastTaskCheckTime = checkEnd;
-
-            // Формируем уведомления
-            foreach (var kvp in newAssignments)
-            {
-                string model = kvp.Key;
-                var items = kvp.Value;
-                var taskDescs = new List<string>();
-                string verb = "";
-
-                foreach (var item in items)
-                {
-                    int version;
-                    int.TryParse(item.TaskVersion, out version);
-                    verb = (version > 1) ? "обновлены" : "выданы";
-                    taskDescs.Add($"{item.HoleGroupName} v{item.TaskVersion}");
-                }
-
-                string title = $"{model} {verb} задания:";
-                string message = string.Join(", ", taskDescs);
-
-                ShowToastNotification(title, message, () =>
-                {
-                    NavigateToProjectsAndRefresh();
-                    ShowMainWindow();
-                });
-            }
-        }
-        #endregion
         #region Проверка обновлений
         private void StartPeriodicUpdateCheck()
         {
