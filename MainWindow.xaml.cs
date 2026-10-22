@@ -49,7 +49,6 @@ namespace TNovDesktop
         private int _tnovUnread;
         private string _tnovUnreadDetail = "";
         private int _bitrixUnread;
-        private int _telegramUnread;
         private double _restoreHeight;
         private double _restoreWidth;
         private double _restoreMinHeight;
@@ -180,27 +179,25 @@ namespace TNovDesktop
             });
         }
 
+        // Только бейдж вкладки: в Telegram всегда много непрочитанных чатов,
+        // в общий счётчик (полоска, панель задач, трей) он не входит.
         private void OnTelegramUnreadChanged(int count)
         {
-            _telegramUnread = count;
             TelegramTabBadge.Visibility = count > 0 ? Visibility.Visible : Visibility.Collapsed;
             TelegramTabBadgeText.Text = FormatBadgeCount(count);
-            RefreshUnreadIndicators();
         }
 
-        /// <summary>Общий счётчик (полоска, панель задач, трей) = TNovPro + Битрикс + Telegram.</summary>
+        /// <summary>Общий счётчик (полоска, панель задач, трей) = TNovPro + Битрикс.</summary>
         private void RefreshUnreadIndicators()
         {
-            int total = _tnovUnread + _bitrixUnread + _telegramUnread;
+            int total = _tnovUnread + _bitrixUnread;
             bool show = total > 0;
 
             var parts = new List<string>();
             if (_tnovUnread > 0)
-                parts.Add(_bitrixUnread > 0 || _telegramUnread > 0 ? $"TNovPro: {_tnovUnreadDetail}" : _tnovUnreadDetail);
+                parts.Add(_bitrixUnread > 0 ? $"TNovPro: {_tnovUnreadDetail}" : _tnovUnreadDetail);
             if (_bitrixUnread > 0)
                 parts.Add($"Битрикс: {_bitrixUnread}");
-            if (_telegramUnread > 0)
-                parts.Add($"Telegram: {_telegramUnread}");
             string detail = string.Join("; ", parts);
 
             _unreadTotal = total;
